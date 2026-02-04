@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Submit Server</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
   </head>
   <body>
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand">Recon</div>
+        <div class="brand">&#2360;</div>
         <nav class="nav">
           <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('department_view') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
@@ -48,47 +48,158 @@
       {% if error %}
         <div class="alert">{{ error }}</div>
       {% endif %}
+      {% if success %}
+        <div class="alert">
+          {{ success }}
+          <div class="inline-actions">
+            <a class="ghost" href="{{ url_for('department_submit') }}">Submit Another</a>
+          </div>
+        </div>
+      {% endif %}
 
       <section class="card">
-        <form method="post" enctype="multipart/form-data" class="form">
+        <div class="match-card">
+          <strong>ITAM Match</strong>
+          <p class="subtle">Fill hostname or IP to auto-fill environment/region.</p>
+        </div>
+        <form method="post" enctype="multipart/form-data" class="form submission-form">
+          <label class="field">
+            <span>Department</span>
+            <input type="text" value="{{ user.department }}" readonly />
+          </label>
+          <label class="field">
+            <span>ITAM ID (required)</span>
+            <input type="text" name="itam_id" list="itam-ids" required />
+            {% if itam_ids %}
+              <datalist id="itam-ids">
+                {% for item in itam_ids %}
+                  <option value="{{ item }}"></option>
+                {% endfor %}
+              </datalist>
+            {% endif %}
+          </label>
           <label class="field">
             <span>Hostname</span>
-            <input type="text" name="hostname" required />
+            <input type="text" name="hostname" list="itam-hostnames" required />
+            {% if itam_hostnames %}
+              <datalist id="itam-hostnames">
+                {% for item in itam_hostnames %}
+                  <option value="{{ item }}"></option>
+                {% endfor %}
+              </datalist>
+            {% endif %}
           </label>
           <label class="field">
             <span>IP Address</span>
-            <input type="text" name="ip_address" required />
+            <input type="text" name="ip_address" list="itam-ips" required />
+            {% if itam_ips %}
+              <datalist id="itam-ips">
+                {% for item in itam_ips %}
+                  <option value="{{ item }}"></option>
+                {% endfor %}
+              </datalist>
+            {% endif %}
           </label>
           <label class="field">
             <span>Environment</span>
-            <input type="text" name="environment" />
+            <input type="text" name="environment" list="itam-envs" />
+            {% if itam_envs %}
+              <datalist id="itam-envs">
+                {% for item in itam_envs %}
+                  <option value="{{ item }}"></option>
+                {% endfor %}
+              </datalist>
+            {% endif %}
           </label>
           <label class="field">
             <span>Region</span>
-            <input type="text" name="region" />
+            <input type="text" name="region" list="itam-regions" />
+            {% if itam_regions %}
+              <datalist id="itam-regions">
+                {% for item in itam_regions %}
+                  <option value="{{ item }}"></option>
+                {% endfor %}
+              </datalist>
+            {% endif %}
+          </label>
+          <label class="field">
+            <span>Exception Reason</span>
+            <select name="exception_reason">
+              <option value="">Select reason (if exception)</option>
+              <option value="vendor_block">Vendor Block</option>
+              <option value="network_limitation">Network Limitation</option>
+              <option value="security_risk">Security Risk</option>
+              <option value="maintenance_window">Maintenance Window</option>
+              <option value="other">Other</option>
+            </select>
           </label>
           <label class="field checkbox">
-            <input type="checkbox" name="is_exception" />
+            <input type="checkbox" name="is_exception" id="is_exception" />
             <span>Mark as exception</span>
           </label>
-          <label class="field">
-            <span>Justification (for exception)</span>
-            <textarea name="justification" rows="4"></textarea>
-          </label>
-          <label class="field">
-            <span>Approval Note (optional upload)</span>
-            <div class="file-upload">
-              <input type="file" name="exception_note" />
-              <span class="file-label">Choose file</span>
+          <div class="exception-panel">
+            <label class="field">
+              <span>Justification (for exception)</span>
+              <textarea name="justification" rows="4"></textarea>
+            </label>
+            <label class="field">
+              <span>Approval Note (required for exception)</span>
+              <div class="file-upload">
+                <input type="file" name="exception_note" />
+                <span class="file-label">Choose file</span>
+              </div>
+              <small>
+                Need a template? 
+                <a class="ghost" href="{{ url_for('static', filename='sample_approval_note.txt') }}">Download sample note</a>
+              </small>
+            </label>
+            <div class="checklist">
+              <strong>Exception checklist</strong>
+              <ul>
+                <li>Approval note attached</li>
+                <li>Reason selected</li>
+                <li>Justification completed</li>
+              </ul>
             </div>
-          </label>
+          </div>
           <button type="submit">Submit</button>
         </form>
       </section>
 
       <section class="card">
         <h2>Bulk Upload (CSV)</h2>
-        <p class="subtle">Required columns: hostname, ip_address. Optional: environment, region, is_exception, justification.</p>
+        <p class="subtle">Required columns: itam_id, hostname, ip_address. Optional: environment, region, is_exception, exception_reason, justification.</p>
+        <div class="inline-actions">
+          <a class="ghost" href="{{ url_for('department_bulk_template') }}">Download CSV Template</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>itam_id</th>
+                <th>hostname</th>
+                <th>ip_address</th>
+                <th>environment</th>
+                <th>region</th>
+                <th>is_exception</th>
+                <th>exception_reason</th>
+                <th>justification</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-label="itam_id">ITAM-1001</td>
+                <td data-label="hostname">app-server-01</td>
+                <td data-label="ip_address">10.10.10.12</td>
+                <td data-label="environment">Prod</td>
+                <td data-label="region">APAC</td>
+                <td data-label="is_exception">yes</td>
+                <td data-label="exception_reason">vendor_block</td>
+                <td data-label="justification">Vendor approval pending</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         {% if success %}
           <div class="alert">{{ success }}</div>
         {% endif %}
@@ -99,7 +210,7 @@
             {% endfor %}
           </div>
         {% endif %}
-        <form method="post" action="{{ url_for('department_bulk_upload') }}" enctype="multipart/form-data" class="form">
+        <form method="post" action="{{ url_for('department_bulk_upload') }}" enctype="multipart/form-data" class="form bulk-form">
           <label class="field">
             <span>Bulk CSV</span>
             <div class="file-upload">
@@ -112,6 +223,8 @@
       </section>
       </main>
     </div>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='app.js') }}?v=20260205"></script>
   </body>
 </html>
+
+

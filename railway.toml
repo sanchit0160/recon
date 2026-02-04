@@ -1,0 +1,11 @@
+﻿[build]
+  builder = "NIXPACKS"
+
+[deploy]
+  startCommand = "gunicorn app:app"
+  restartPolicyType = "ON_FAILURE"
+
+[env]
+  SECRET_KEY = "change-me"
+  ADMIN_USER = "admin"
+  ADMIN_PASS = "admin123"

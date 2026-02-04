@@ -1,4 +1,14 @@
-﻿(function () {
+(function () {
+  window.__appReady = true;
+  window.__appErrors = [];
+  function guard(fn, label) {
+    try {
+      fn();
+    } catch (err) {
+      window.__appErrors.push(`${label}: ${err}`);
+      console.error("App JS error in " + label, err);
+    }
+  }
   function setupTable(block) {
     const table = block.querySelector("table");
     if (!table) return;
@@ -81,11 +91,6 @@
       rows.forEach((row) => (row.style.display = "none"));
       filtered.slice(start, end).forEach((row) => {
         row.style.display = "table-row";
-        if (window.innerWidth <= 480) {
-          row.classList.add("collapsed");
-        } else {
-          row.classList.remove("collapsed");
-        }
         tbody.appendChild(row);
       });
 
@@ -144,11 +149,7 @@
       });
     });
 
-    tbody.addEventListener("click", (event) => {
-      const row = event.target.closest("tr");
-      if (!row || window.innerWidth > 480) return;
-      row.classList.toggle("collapsed");
-    });
+    function setupCardToggles() {}
 
     if (filterToggle && filterPanel) {
       filterToggle.addEventListener("click", () => {
@@ -156,7 +157,11 @@
       });
     }
 
+    function setupViewToggle() {}
+
     applyFilter();
+    setupViewToggle();
+    setupCardToggles();
   }
 
   function setupFilters(form) {
@@ -255,20 +260,238 @@
       document.body.classList.add("sidebar-collapsed");
     }
 
-    buttons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.body.classList.toggle("sidebar-collapsed");
-        const collapsed = document.body.classList.contains("sidebar-collapsed");
-        localStorage.setItem("sidebar", collapsed ? "collapsed" : "expanded");
+    let overlay = null;
+    const sidebar = document.querySelector(".sidebar");
+    function openOverlay() {
+      if (overlay) return;
+      overlay = document.createElement("div");
+      overlay.className = "sidebar-overlay";
+      overlay.addEventListener("click", () => {
+        document.body.classList.remove("sidebar-open");
+        overlay.remove();
+        overlay = null;
       });
+      document.body.appendChild(overlay);
+    }
+
+    function closeOverlay() {
+      if (overlay) {
+        overlay.remove();
+        overlay = null;
+      }
+    }
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (window.innerWidth <= 720) {
+          document.body.classList.toggle("sidebar-open");
+          const isOpen = document.body.classList.contains("sidebar-open");
+          btn.setAttribute("aria-expanded", String(isOpen));
+          if (isOpen) {
+            openOverlay();
+          } else {
+            closeOverlay();
+          }
+        } else {
+          document.body.classList.toggle("sidebar-collapsed");
+          const collapsed = document.body.classList.contains("sidebar-collapsed");
+          localStorage.setItem("sidebar", collapsed ? "collapsed" : "expanded");
+          btn.setAttribute("aria-expanded", String(!collapsed));
+        }
+      });
+    });
+
+    document.querySelectorAll(".nav-link").forEach((link) => {
+      link.addEventListener("click", () => {
+        if (window.innerWidth <= 720) {
+          document.body.classList.remove("sidebar-open");
+          closeOverlay();
+        }
+      });
+    });
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      const isToggle = target.closest("[data-sidebar-toggle]");
+      if (isToggle) return;
+      if (!sidebar) return;
+      const clickedInside = sidebar.contains(target);
+      if (!clickedInside) {
+        if (window.innerWidth <= 720) {
+          if (document.body.classList.contains("sidebar-open")) {
+            document.body.classList.remove("sidebar-open");
+            closeOverlay();
+          }
+        } else if (document.body.classList.contains("sidebar-collapsed") === false) {
+          document.body.classList.add("sidebar-collapsed");
+          localStorage.setItem("sidebar", "collapsed");
+        }
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 720) {
+        document.body.classList.remove("sidebar-open");
+        closeOverlay();
+      }
     });
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll(".table-block").forEach(setupTable);
-    document.querySelectorAll(".filters").forEach(setupFilters);
-    setupFileInputs();
-    setupThemeToggle();
-    setupSidebarToggle();
-  });
+  function setupSubmissionForm() {
+    const form = document.querySelector(".submission-form");
+    if (!form) return;
+
+    const fields = ["itam_id", "hostname", "ip_address", "environment", "region", "justification", "exception_reason"];
+    const draftKey = "submission_draft";
+    const exceptionToggle = form.querySelector("#is_exception");
+    const exceptionPanel = form.querySelector(".exception-panel");
+
+    const saved = localStorage.getItem(draftKey);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        fields.forEach((name) => {
+          const input = form.querySelector(`[name="${name}"]`);
+        if (input && data[name]) {
+          input.value = data[name];
+        }
+      });
+      } catch (err) {}
+    }
+
+    form.addEventListener("input", () => {
+      const data = {};
+      fields.forEach((name) => {
+        const input = form.querySelector(`[name="${name}"]`);
+        if (input) {
+          data[name] = input.value;
+        }
+      });
+      localStorage.setItem(draftKey, JSON.stringify(data));
+    });
+
+    form.addEventListener("submit", () => {
+      localStorage.removeItem(draftKey);
+    });
+
+    const itamIdInput = form.querySelector('[name="itam_id"]');
+    const hostnameInput = form.querySelector('[name="hostname"]');
+    const ipInput = form.querySelector('[name="ip_address"]');
+    const envInput = form.querySelector('[name="environment"]');
+    const regionInput = form.querySelector('[name="region"]');
+    const matchCard = document.querySelector(".match-card");
+    const validationBox = document.createElement("div");
+    validationBox.className = "validation";
+    form.prepend(validationBox);
+
+    async function lookup() {
+      const itamId = itamIdInput?.value || "";
+      const hostname = hostnameInput?.value || "";
+      const ipAddress = ipInput?.value || "";
+      if (!itamId && !hostname && !ipAddress) return;
+      const params = new URLSearchParams();
+      if (itamId) params.append("itam_id", itamId);
+      if (hostname) params.append("hostname", hostname);
+      if (ipAddress) params.append("ip_address", ipAddress);
+      try {
+        const res = await fetch(`/api/itam_lookup?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (itamIdInput && data.itam_id && !itamIdInput.value) itamIdInput.value = data.itam_id;
+        if (hostnameInput && data.hostname && !hostnameInput.value) hostnameInput.value = data.hostname;
+        if (ipInput && data.ip_address && !ipInput.value) ipInput.value = data.ip_address;
+        if (envInput && data.environment && !envInput.value) envInput.value = data.environment;
+        if (regionInput && data.region && !regionInput.value) regionInput.value = data.region;
+        if (matchCard && (data.environment || data.region)) {
+          matchCard.innerHTML = `<strong>ITAM Match</strong><p class="subtle">Environment: ${data.environment || "-"} · Region: ${data.region || "-"}</p>`;
+        }
+      } catch (err) {}
+    }
+
+    if (itamIdInput) itamIdInput.addEventListener("input", lookup);
+    if (hostnameInput) hostnameInput.addEventListener("blur", lookup);
+    if (ipInput) ipInput.addEventListener("blur", lookup);
+
+    function lockFields(locked) {
+      if (hostnameInput) hostnameInput.readOnly = locked;
+      if (ipInput) ipInput.readOnly = locked;
+      if (envInput) envInput.readOnly = locked;
+      if (regionInput) regionInput.readOnly = locked;
+    }
+
+    if (itamIdInput) {
+      itamIdInput.addEventListener("input", () => {
+        const hasValue = !!itamIdInput.value.trim();
+        lockFields(hasValue);
+      });
+    }
+
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "ghost";
+    clearBtn.textContent = "Clear auto-fill";
+    clearBtn.addEventListener("click", () => {
+      if (itamIdInput) itamIdInput.value = "";
+      if (hostnameInput) hostnameInput.value = "";
+      if (ipInput) ipInput.value = "";
+      if (envInput) envInput.value = "";
+      if (regionInput) regionInput.value = "";
+      lockFields(false);
+      if (matchCard) {
+        matchCard.innerHTML = `<strong>ITAM Match</strong><p class="subtle">Fill hostname or IP to auto‑fill environment/region.</p>`;
+      }
+    });
+    if (matchCard && !matchCard.querySelector(".ghost")) {
+      matchCard.appendChild(clearBtn);
+    }
+
+    function updateExceptionPanel() {
+      if (!exceptionPanel || !exceptionToggle) return;
+      exceptionPanel.classList.toggle("hidden", !exceptionToggle.checked);
+    }
+
+    if (exceptionToggle) {
+      exceptionToggle.addEventListener("change", updateExceptionPanel);
+      updateExceptionPanel();
+    }
+
+    function validate() {
+      const issues = [];
+      const host = hostnameInput?.value || "";
+      const ip = ipInput?.value || "";
+      if (host && !/^[A-Za-z0-9][A-Za-z0-9.-]{0,251}[A-Za-z0-9]$/.test(host)) {
+        issues.push("Hostname looks invalid.");
+      }
+      if (ip && !/^\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?$/.test(ip)) {
+        issues.push("IP address looks invalid.");
+      }
+      validationBox.textContent = issues.join(" ");
+    }
+
+    if (hostnameInput) hostnameInput.addEventListener("input", validate);
+    if (ipInput) ipInput.addEventListener("input", validate);
+
+    form.addEventListener("submit", (e) => {
+      if (!confirm("Submit this server for integration?")) {
+        e.preventDefault();
+      }
+    });
+  }
+
+  function init() {
+    document.querySelectorAll(".table-block").forEach((block) => guard(() => setupTable(block), "setupTable"));
+    document.querySelectorAll(".filters").forEach((form) => guard(() => setupFilters(form), "setupFilters"));
+    guard(setupFileInputs, "setupFileInputs");
+    guard(setupThemeToggle, "setupThemeToggle");
+    guard(setupSidebarToggle, "setupSidebarToggle");
+    guard(setupSubmissionForm, "setupSubmissionForm");
+    window.__appInit = true;
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();

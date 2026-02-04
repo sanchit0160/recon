@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Manage Users</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
   </head>
   <body>
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand">Recon</div>
+        <div class="brand">&#2360;</div>
         <nav class="nav">
           <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
@@ -111,38 +111,55 @@
       <section class="card">
         <h2>Existing Users</h2>
         {% if users %}
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>username</th>
-                  <th>role</th>
-                  <th>department</th>
-                  <th>actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in users %}
+          <div class="table-block">
+            <div class="table-actions">
+              <div class="table-controls">
+                <input type="search" class="table-search" placeholder="Search users..." />
+                <select class="table-page-size">
+                  <option value="10">10 rows</option>
+                  <option value="25">25 rows</option>
+                  <option value="50">50 rows</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
                   <tr>
-                    <td data-label="username">{{ item.username }}</td>
-                    <td data-label="role">{{ item.role }}</td>
-                    <td data-label="department">{{ item.department or '-' }}</td>
-                    <td data-label="actions">
-                      {% if item.id != user.id %}
-                        <div class="inline-actions">
-                          <a class="ghost" href="{{ url_for('admin_user_edit', user_id=item.id) }}">Edit / Reset</a>
-                          <form method="post" action="{{ url_for('admin_user_delete', user_id=item.id) }}">
-                            <button type="submit">Delete</button>
-                          </form>
-                        </div>
-                      {% else %}
-                        <span class="subtle">Current user</span>
-                      {% endif %}
-                    </td>
+                    <th class="sortable">username</th>
+                    <th class="sortable">role</th>
+                    <th class="sortable">department</th>
+                    <th>actions</th>
                   </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {% for item in users %}
+                    <tr>
+                      <td data-label="username">{{ item.username }}</td>
+                      <td data-label="role">{{ item.role }}</td>
+                      <td data-label="department">{{ item.department or '-' }}</td>
+                      <td data-label="actions">
+                        {% if item.id != user.id %}
+                          <div class="inline-actions">
+                            <a class="ghost" href="{{ url_for('admin_user_edit', user_id=item.id) }}">Edit / Reset</a>
+                            <form method="post" action="{{ url_for('admin_user_delete', user_id=item.id) }}">
+                              <button type="submit">Delete</button>
+                            </form>
+                          </div>
+                        {% else %}
+                          <span class="subtle">Current user</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <button type="button" class="pager prev">Previous</button>
+              <span class="page-info"></span>
+              <button type="button" class="pager next">Next</button>
+            </div>
           </div>
         {% else %}
           <p class="empty">No users yet.</p>
@@ -150,6 +167,8 @@
       </section>
       </main>
     </div>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='app.js') }}?v=20260205"></script>
   </body>
 </html>
+
+

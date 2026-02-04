@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Department · ITAM vs PIMS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
   </head>
   <body>
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand">Recon</div>
+        <div class="brand">&#2360;</div>
         <nav class="nav">
           <a class="nav-link active" data-tooltip="Dashboard" href="{{ url_for('department_view') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
@@ -154,51 +154,82 @@
         <section class="card">
           <h2>Integration Submissions</h2>
           {% if submissions %}
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>hostname</th>
-                    <th>ip_address</th>
-                    <th>region</th>
-                    <th>environment</th>
-                    <th>exception</th>
-                    <th>status</th>
-                    <th>remarks</th>
-                    <th>submitted_at</th>
-                    <th>age_days</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for item in submissions %}
+            <div class="table-block">
+              <div class="table-actions">
+                <div class="table-controls">
+                  <input type="search" class="table-search" placeholder="Search submissions..." />
+                  <select class="table-page-size">
+                    <option value="10">10 rows</option>
+                    <option value="25">25 rows</option>
+                    <option value="50">50 rows</option>
+                  </select>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
                     <tr>
-                      <td data-label="hostname">{{ item.hostname }}</td>
-                      <td data-label="ip_address">{{ item.ip_address }}</td>
-                      <td data-label="region">{{ item.region or '-' }}</td>
-                      <td data-label="environment">{{ item.environment or '-' }}</td>
-                      <td data-label="exception">
-                        {% if item.is_exception %}
-                          <span class="badge pending">Exception</span>
-                        {% else %}
-                          <span class="badge integrated">Normal</span>
-                        {% endif %}
-                      </td>
-                      <td data-label="status">
-                        <span class="badge status-{{ item.admin_status }}">{{ item.admin_status }}</span>
-                      </td>
-                      <td data-label="remarks">{{ item.admin_remarks or '-' }}</td>
-                      <td data-label="submitted_at">{{ item.submitted_at }}</td>
-                      <td data-label="age_days">
-                        {% if item.age_days > 7 %}
-                          <span class="badge status-overdue">{{ item.age_days }}d</span>
-                        {% else %}
-                          <span class="badge">{{ item.age_days }}d</span>
-                        {% endif %}
-                      </td>
+                      <th>hostname</th>
+                      <th>ip_address</th>
+                      <th>region</th>
+                      <th>environment</th>
+                      <th>exception</th>
+                      <th>reason</th>
+                      <th>status</th>
+                      <th>timeline</th>
+                      <th>remarks</th>
+                      <th>submitted_at</th>
+                      <th>age_days</th>
                     </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {% for item in submissions %}
+                      <tr>
+                        <td data-label="hostname">{{ item.hostname }}</td>
+                        <td data-label="ip_address">{{ item.ip_address }}</td>
+                        <td data-label="region">{{ item.region or '-' }}</td>
+                        <td data-label="environment">{{ item.environment or '-' }}</td>
+                        <td data-label="exception">
+                          {% if item.is_exception %}
+                            <span class="badge exception">Exception</span>
+                          {% else %}
+                            <span class="badge integrated">Normal</span>
+                          {% endif %}
+                        </td>
+                        <td data-label="reason">{{ item.exception_reason or '-' }}</td>
+                        <td data-label="status">
+                          <span class="badge status-{{ item.admin_status }}">{{ item.admin_status }}</span>
+                        </td>
+                        <td data-label="timeline">
+                          {% if item.admin_status == 'pending' %}
+                            Submitted ? Under Review
+                          {% elif item.admin_status == 'approved' %}
+                            Submitted ? Approved
+                          {% elif item.admin_status == 'rejected' %}
+                            Submitted ? Rejected
+                          {% else %}
+                            Submitted
+                          {% endif %}
+                        </td>
+                        <td data-label="remarks">{{ item.admin_remarks or '-' }}</td>
+                        <td data-label="submitted_at">{{ item.submitted_at }}</td>
+                        <td data-label="age_days">
+                          {% if item.age_days > 7 %}
+                            <span class="badge status-overdue">{{ item.age_days }}d</span>
+                          {% else %}
+                            <span class="badge">{{ item.age_days }}d</span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer">
+                <button type="button" class="pager prev">Previous</button>
+                <span class="page-info"></span>
+                <button type="button" class="pager next">Next</button>
+              </div>
             </div>
           {% else %}
             <p class="empty">No submissions yet.</p>
@@ -207,7 +238,9 @@
       {% endif %}
       </main>
     </div>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='app.js') }}?v=20260205"></script>
   </body>
 </html>
+
+
 

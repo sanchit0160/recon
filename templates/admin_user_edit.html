@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Edit User</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
   </head>
   <body>
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand">Recon</div>
+        <div class="brand">&#2360;</div>
         <nav class="nav">
           <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
@@ -109,6 +109,8 @@
       </section>
       </main>
     </div>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='app.js') }}?v=20260205"></script>
   </body>
 </html>
+
+

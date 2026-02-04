@@ -1,0 +1,12 @@
+﻿Sample Approval Note
+====================
+
+Department: Finance
+Server: app-server-01
+IP Address: 10.10.10.12
+Exception Reason: vendor_block
+Justification: Vendor approval pending.
+Approved By: Jane Doe (IT Director)
+Approval Date: 2026-02-04
+
+Signature: ______________________

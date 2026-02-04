@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Review Exception</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
   </head>
   <body>
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand">Recon</div>
+        <div class="brand">&#2360;</div>
         <nav class="nav">
           <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
@@ -93,6 +93,7 @@
         <h2>Exception Details</h2>
         <div class="summary">
           <div><strong>Justification</strong><span>{{ submission.justification or '-' }}</span></div>
+          <div><strong>Reason</strong><span>{{ submission.exception_reason or '-' }}</span></div>
           <div><strong>Approval Note</strong>
             <span>
               {% if note_filename %}
@@ -103,12 +104,29 @@
             </span>
           </div>
           <div><strong>Current Status</strong><span class="badge status-{{ submission.admin_status }}">{{ submission.admin_status }}</span></div>
+          <div><strong>Exception</strong><span class="badge exception">Exception</span></div>
         </div>
+        {% if note_filename %}
+          {% set lower = note_filename.lower() %}
+          {% if lower.endswith('.pdf') %}
+            <div class="preview">
+              <iframe src="{{ url_for('download_upload', filename=note_filename) }}" title="Approval Note"></iframe>
+            </div>
+          {% elif lower.endswith('.png') or lower.endswith('.jpg') or lower.endswith('.jpeg') %}
+            <div class="preview">
+              <img src="{{ url_for('download_upload', filename=note_filename) }}" alt="Approval Note" />
+            </div>
+          {% endif %}
+        {% endif %}
       </section>
 
       <section class="card">
         <h2>Review Decision</h2>
         <form method="post" class="form">
+          <label class="field checkbox">
+            <input type="checkbox" name="verified" />
+            <span>Approval note verified</span>
+          </label>
           <label class="field">
             <span>Remarks</span>
             <textarea name="remarks" rows="4"></textarea>
@@ -121,6 +139,8 @@
       </section>
       </main>
     </div>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='app.js') }}?v=20260205"></script>
   </body>
 </html>
+
+

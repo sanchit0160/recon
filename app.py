@@ -7,10 +7,11 @@ import os
 import sqlite3
 from pathlib import Path
 import re
+import ipaddress
 from datetime import datetime
 from typing import Dict, List, Tuple
 
-from flask import Flask, redirect, render_template, request, session, url_for, Response, send_from_directory
+from flask import Flask, redirect, render_template, request, session, url_for, Response, send_from_directory, jsonify
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -72,6 +73,7 @@ def _init_db():
                 ip_address TEXT NOT NULL,
                 environment TEXT,
                 region TEXT,
+                exception_reason TEXT,
                 status TEXT NOT NULL,
                 is_exception INTEGER NOT NULL DEFAULT 0,
                 exception_note_path TEXT,
@@ -81,7 +83,8 @@ def _init_db():
                 admin_status TEXT NOT NULL DEFAULT 'pending',
                 admin_reviewed_by TEXT,
                 admin_reviewed_at TEXT,
-                admin_remarks TEXT
+                admin_remarks TEXT,
+                review_verified INTEGER
             )
             """
         )
@@ -96,6 +99,20 @@ def _init_db():
             )
             """
         )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _ensure_submission_columns():
+    conn = _db_connect()
+    try:
+        cur = conn.execute("PRAGMA table_info(submissions)")
+        existing = {row["name"] for row in cur.fetchall()}
+        if "exception_reason" not in existing:
+            conn.execute("ALTER TABLE submissions ADD COLUMN exception_reason TEXT")
+        if "review_verified" not in existing:
+            conn.execute("ALTER TABLE submissions ADD COLUMN review_verified INTEGER")
         conn.commit()
     finally:
         conn.close()
@@ -226,6 +243,7 @@ def _create_submission(
     is_exception: bool,
     exception_note_path: str | None,
     justification: str,
+    exception_reason: str,
     submitted_by: str,
 ):
     conn = _db_connect()
@@ -233,10 +251,10 @@ def _create_submission(
         conn.execute(
             """
             INSERT INTO submissions (
-                department, hostname, ip_address, environment, region,
+                department, hostname, ip_address, environment, region, exception_reason,
                 status, is_exception, exception_note_path, justification,
-                submitted_by, submitted_at, admin_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                submitted_by, submitted_at, admin_status, review_verified
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 department,
@@ -244,6 +262,7 @@ def _create_submission(
                 ip_address,
                 environment,
                 region,
+                exception_reason,
                 "submitted",
                 1 if is_exception else 0,
                 exception_note_path,
@@ -251,6 +270,7 @@ def _create_submission(
                 submitted_by,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "pending",
+                0,
             ),
         )
         conn.commit()
@@ -276,6 +296,24 @@ def _list_pending_exceptions():
         cur = conn.execute(
             "SELECT * FROM submissions WHERE is_exception = 1 ORDER BY submitted_at DESC"
         )
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+
+def _list_exception_submissions_filtered(department: str, status: str):
+    conn = _db_connect()
+    try:
+        query = "SELECT * FROM submissions WHERE is_exception = 1"
+        params = []
+        if department:
+            query += " AND department = ?"
+            params.append(department)
+        if status:
+            query += " AND admin_status = ?"
+            params.append(status)
+        query += " ORDER BY submitted_at DESC"
+        cur = conn.execute(query, tuple(params))
         return cur.fetchall()
     finally:
         conn.close()
@@ -316,16 +354,34 @@ def _submission_exists(department: str, hostname: str, ip_address: str):
 
 
 def _is_valid_ip(value: str) -> bool:
-    return bool(re.match(r"^\\d{1,3}(?:\\.\\d{1,3}){3}$", value.strip()))
+    raw = value.strip()
+    if not raw:
+        return False
+    if "/" in raw:
+        ip_part = raw.split("/", 1)[0].strip()
+    else:
+        ip_part = raw
+    try:
+        ipaddress.ip_address(ip_part)
+        return True
+    except ValueError:
+        return False
 
 
-def _review_exception(submission_id: int, status: str, remarks: str, reviewer: str):
+def _is_valid_hostname(value: str) -> bool:
+    raw = value.strip()
+    if not raw or len(raw) > 253:
+        return False
+    return bool(re.match(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,251}[A-Za-z0-9]$", raw))
+
+
+def _review_exception(submission_id: int, status: str, remarks: str, reviewer: str, verified: bool):
     conn = _db_connect()
     try:
         conn.execute(
             """
             UPDATE submissions
-            SET admin_status = ?, admin_remarks = ?, admin_reviewed_by = ?, admin_reviewed_at = ?
+            SET admin_status = ?, admin_remarks = ?, admin_reviewed_by = ?, admin_reviewed_at = ?, review_verified = ?
             WHERE id = ?
             """,
             (
@@ -333,6 +389,7 @@ def _review_exception(submission_id: int, status: str, remarks: str, reviewer: s
                 remarks,
                 reviewer,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                1 if verified else 0,
                 submission_id,
             ),
         )
@@ -426,6 +483,7 @@ def _load_recon() -> dict | None:
 LAST_RECON = _load_recon()
 
 _init_db()
+_ensure_submission_columns()
 _seed_admin()
 
 
@@ -514,6 +572,21 @@ def _build_metrics(itam_rows, integrated_rows, pending_rows):
         "region_count": region_count,
         "department_count": department_count,
     }
+
+
+def _itam_lookup(hostname: str, ip_address: str, itam_id: str, department: str | None):
+    if not LAST_RECON:
+        return None
+    for row in LAST_RECON["itam_rows"]:
+        if department and row.get("department", "") != department:
+            continue
+        if itam_id and row.get("itam_id", "").strip().lower() == itam_id.lower():
+            return row
+        if hostname and row.get("hostname", "").strip().lower() == hostname.lower():
+            return row
+        if ip_address and row.get("ip_address", "").strip() == ip_address:
+            return row
+    return None
 
 def _build_all_rows(integrated_rows, pending_rows):
     all_rows = []
@@ -814,28 +887,102 @@ def department_view():
     )
 
 
+@app.route("/api/itam_lookup")
+def api_itam_lookup():
+    user = _current_user()
+    if not user:
+        return jsonify({})
+    hostname = (request.args.get("hostname") or "").strip()
+    ip_address = (request.args.get("ip_address") or "").strip()
+    itam_id = (request.args.get("itam_id") or "").strip()
+    department = user.get("department")
+    match = _itam_lookup(hostname, ip_address, itam_id, department)
+    if not match:
+        return jsonify({})
+    return jsonify(
+        {
+            "itam_id": match.get("itam_id", ""),
+            "hostname": match.get("hostname", ""),
+            "ip_address": match.get("ip_address", ""),
+            "environment": match.get("environment", ""),
+            "region": match.get("region", ""),
+        }
+    )
+
+
 @app.route("/department/submit", methods=["GET", "POST"])
 def department_submit():
     user = _current_user()
     if not user or user["role"] != "department":
         return redirect(url_for("login"))
 
+    itam_hostnames = []
+    itam_ips = []
+    itam_ids = []
+    itam_regions = []
+    itam_envs = []
+    if LAST_RECON:
+        dept = user.get("department") or ""
+        itam_hostnames = sorted(
+            {
+                row.get("hostname", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("hostname", "") and row.get("department", "") == dept
+            }
+        )
+        itam_ips = sorted(
+            {
+                row.get("ip_address", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("ip_address", "") and row.get("department", "") == dept
+            }
+        )
+        itam_ids = sorted(
+            {
+                row.get("itam_id", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("itam_id", "") and row.get("department", "") == dept
+            }
+        )
+        itam_regions = sorted(
+            {
+                row.get("region", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("region", "") and row.get("department", "") == dept
+            }
+        )
+        itam_envs = sorted(
+            {
+                row.get("environment", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("environment", "") and row.get("department", "") == dept
+            }
+        )
+
     error = None
     if request.method == "POST":
+        itam_id = (request.form.get("itam_id") or "").strip()
         hostname = (request.form.get("hostname") or "").strip()
         ip_address = (request.form.get("ip_address") or "").strip()
         environment = (request.form.get("environment") or "").strip()
         region = (request.form.get("region") or "").strip()
         is_exception = (request.form.get("is_exception") or "") == "on"
         justification = (request.form.get("justification") or "").strip()
+        exception_reason = (request.form.get("exception_reason") or "").strip()
         note_file = request.files.get("exception_note")
 
-        if not hostname or not ip_address:
+        if not itam_id:
+            error = "ITAM ID is required."
+        elif not hostname or not ip_address:
             error = "Hostname and IP address are required."
+        elif not _is_valid_hostname(hostname):
+            error = "Please provide a valid hostname."
         elif not _is_valid_ip(ip_address):
             error = "Please provide a valid IP address."
-        elif is_exception and not (justification or (note_file and note_file.filename)):
-            error = "Provide a justification or upload an approval note for exceptions."
+        elif is_exception and not (note_file and note_file.filename):
+            error = "Approval note attachment is required for exceptions."
+        elif is_exception and not exception_reason:
+            error = "Please select an exception reason."
         elif _submission_exists(user["department"] or "", hostname, ip_address):
             error = "A pending submission for this server already exists."
         else:
@@ -855,12 +1002,22 @@ def department_submit():
                 is_exception=is_exception,
                 exception_note_path=note_path,
                 justification=justification,
+                exception_reason=exception_reason,
                 submitted_by=user["username"],
             )
             _log_action(user["username"], "submission_create", f"{hostname} ({ip_address}) exception={is_exception}")
             return redirect(url_for("department_view"))
 
-    return render_template("department_submit.html", user=user, error=error)
+    return render_template(
+        "department_submit.html",
+        user=user,
+        error=error,
+        itam_hostnames=itam_hostnames,
+        itam_ips=itam_ips,
+        itam_ids=itam_ids,
+        itam_regions=itam_regions,
+        itam_envs=itam_envs,
+    )
 
 
 @app.route("/uploads/<path:filename>")
@@ -876,11 +1033,23 @@ def admin_exceptions():
     user = _current_user()
     if not user or user["role"] != "admin":
         return redirect(url_for("login"))
-    submissions = _list_pending_exceptions()
+    department = (request.args.get("department") or "").strip()
+    status = (request.args.get("status") or "").strip()
+    submissions = _list_exception_submissions_filtered(department, status)
     submissions = [
         {**dict(item), "age_days": _age_days(item["submitted_at"])} for item in submissions
     ]
-    return render_template("admin_exceptions.html", user=user, submissions=submissions)
+    departments = []
+    if LAST_RECON:
+        departments = sorted({row.get("department", "") for row in LAST_RECON["itam_rows"] if row.get("department", "")})
+    return render_template(
+        "admin_exceptions.html",
+        user=user,
+        submissions=submissions,
+        departments=departments,
+        department=department,
+        status=status,
+    )
 
 
 @app.route("/admin/exceptions/<int:submission_id>", methods=["GET", "POST"])
@@ -902,6 +1071,7 @@ def admin_exception_review(submission_id: int):
     if request.method == "POST":
         action = (request.form.get("action") or "").strip().lower()
         remarks = (request.form.get("remarks") or "").strip()
+        verified = (request.form.get("verified") or "") == "on"
         if action not in {"approved", "rejected"}:
             return render_template(
                 "admin_exception_review.html",
@@ -910,7 +1080,15 @@ def admin_exception_review(submission_id: int):
                 note_filename=note_filename,
                 error="Choose approve or reject.",
             )
-        _review_exception(submission_id, action, remarks, user["username"])
+        if action == "approved" and not verified:
+            return render_template(
+                "admin_exception_review.html",
+                user=user,
+                submission=submission_dict,
+                note_filename=note_filename,
+                error="Please confirm approval note verification before approving.",
+            )
+        _review_exception(submission_id, action, remarks, user["username"], verified)
         _log_action(user["username"], "exception_review", f"id={submission_id}, action={action}")
         return redirect(url_for("admin_exceptions"))
 
@@ -920,6 +1098,32 @@ def admin_exception_review(submission_id: int):
         submission=submission_dict,
         note_filename=note_filename,
     )
+
+
+@app.route("/admin/exceptions/bulk", methods=["POST"])
+def admin_exception_bulk():
+    user = _current_user()
+    if not user or user["role"] != "admin":
+        return redirect(url_for("login"))
+
+    ids = request.form.getlist("submission_ids")
+    action = (request.form.get("action") or "").strip().lower()
+    remarks = (request.form.get("remarks") or "").strip()
+    verified = (request.form.get("verified") or "") == "on"
+
+    if action not in {"approved", "rejected"} or not ids:
+        return redirect(url_for("admin_exceptions"))
+    if action == "approved" and not verified:
+        return redirect(url_for("admin_exceptions", status="pending"))
+
+    for raw_id in ids:
+        try:
+            submission_id = int(raw_id)
+        except ValueError:
+            continue
+        _review_exception(submission_id, action, remarks, user["username"], verified)
+    _log_action(user["username"], "exception_bulk_review", f"count={len(ids)}, action={action}")
+    return redirect(url_for("admin_exceptions"))
 
 
 @app.route("/admin/submissions/export")
@@ -940,12 +1144,14 @@ def admin_export_submissions():
         "is_exception",
         "exception_note_path",
         "justification",
+        "exception_reason",
         "submitted_by",
         "submitted_at",
         "admin_status",
         "admin_reviewed_by",
         "admin_reviewed_at",
         "admin_remarks",
+        "review_verified",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
@@ -976,27 +1182,39 @@ def department_bulk_upload():
         return redirect(url_for("department_submit"))
 
     rows, headers = _read_csv(upload)
-    required = {"hostname", "ip_address"}
+    required = {"itam_id", "hostname", "ip_address"}
     if not required.issubset(set(headers)):
         return render_template(
             "department_submit.html",
             user=user,
             error="Bulk CSV must include hostname and ip_address columns.",
+            itam_hostnames=[],
+            itam_ips=[],
         )
 
     created = 0
     skipped = 0
     errors = []
     for idx, row in enumerate(rows, start=2):
+        itam_id = (row.get("itam_id") or "").strip()
         hostname = (row.get("hostname") or "").strip()
         ip_address = (row.get("ip_address") or "").strip()
         environment = (row.get("environment") or "").strip()
         region = (row.get("region") or "").strip()
         is_exception = (row.get("is_exception") or "").strip().lower() in {"yes", "true", "1"}
         justification = (row.get("justification") or "").strip()
+        exception_reason = (row.get("exception_reason") or "").strip()
 
+        if not itam_id:
+            errors.append(f"Row {idx}: itam_id required.")
+            skipped += 1
+            continue
         if not hostname or not ip_address:
             errors.append(f"Row {idx}: hostname/ip_address required.")
+            skipped += 1
+            continue
+        if not _is_valid_hostname(hostname):
+            errors.append(f"Row {idx}: invalid hostname.")
             skipped += 1
             continue
         if not _is_valid_ip(ip_address):
@@ -1005,6 +1223,10 @@ def department_bulk_upload():
             continue
         if is_exception and not justification:
             errors.append(f"Row {idx}: justification required for exceptions.")
+            skipped += 1
+            continue
+        if is_exception and not exception_reason:
+            errors.append(f"Row {idx}: exception_reason required for exceptions.")
             skipped += 1
             continue
         if _submission_exists(user["department"] or "", hostname, ip_address):
@@ -1020,17 +1242,79 @@ def department_bulk_upload():
             is_exception=is_exception,
             exception_note_path=None,
             justification=justification,
+            exception_reason=exception_reason,
             submitted_by=user["username"],
         )
         created += 1
 
     _log_action(user["username"], "bulk_upload", f"created={created}, skipped={skipped}")
+    itam_hostnames = []
+    itam_ips = []
+    itam_ids = []
+    itam_regions = []
+    itam_envs = []
+    if LAST_RECON:
+        dept = user.get("department") or ""
+        itam_hostnames = sorted(
+            {
+                row.get("hostname", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("hostname", "") and row.get("department", "") == dept
+            }
+        )
+        itam_ips = sorted(
+            {
+                row.get("ip_address", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("ip_address", "") and row.get("department", "") == dept
+            }
+        )
+        itam_ids = sorted(
+            {
+                row.get("itam_id", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("itam_id", "") and row.get("department", "") == dept
+            }
+        )
+        itam_regions = sorted(
+            {
+                row.get("region", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("region", "") and row.get("department", "") == dept
+            }
+        )
+        itam_envs = sorted(
+            {
+                row.get("environment", "")
+                for row in LAST_RECON["itam_rows"]
+                if row.get("environment", "") and row.get("department", "") == dept
+            }
+        )
     return render_template(
         "department_submit.html",
         user=user,
         success=f"Bulk upload complete: {created} created, {skipped} skipped.",
         errors=errors,
+        itam_hostnames=itam_hostnames,
+        itam_ips=itam_ips,
+        itam_ids=itam_ids,
+        itam_regions=itam_regions,
+        itam_envs=itam_envs,
     )
+
+
+@app.route("/department/bulk-template")
+def department_bulk_template():
+    user = _current_user()
+    if not user or user["role"] != "department":
+        return redirect(url_for("login"))
+    output = io.StringIO()
+    fieldnames = ["itam_id", "hostname", "ip_address", "environment", "region", "is_exception", "exception_reason", "justification"]
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    response = Response(output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=bulk_template.csv"
+    return response
 
 
 @app.route("/admin/department/<department>")
@@ -1064,12 +1348,18 @@ def admin_department(department: str):
     )
 
 
-def _csv_response(rows: List[Dict[str, str]], filename: str) -> Response:
+def _csv_response(rows: List[Dict[str, str]], filename: str, include_status: bool = False) -> Response:
     output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=REQUIRED_ITAM_FIELDS)
+    fieldnames = list(REQUIRED_ITAM_FIELDS)
+    if include_status and "status" not in fieldnames:
+        fieldnames = ["status"] + fieldnames
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
     for row in rows:
-        writer.writerow({key: row.get(key, "") for key in REQUIRED_ITAM_FIELDS})
+        data = {key: row.get(key, "") for key in REQUIRED_ITAM_FIELDS}
+        if include_status:
+            data["status"] = row.get("status", "")
+        writer.writerow(data)
     response = Response(output.getvalue(), mimetype="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
     return response
@@ -1091,13 +1381,21 @@ def export_admin():
 
     if export_type == "integrated":
         rows = _filter_rows(data["integrated"], region, department)
-        return _csv_response(rows, "integrated_servers.csv")
+        rows = [{**row, "status": "Integrated"} for row in rows]
+        return _csv_response(rows, "integrated_servers.csv", include_status=True)
     if export_type == "pending":
         rows = _filter_rows(data["pending"], region, department)
-        return _csv_response(rows, "pending_servers.csv")
+        rows = [{**row, "status": "Pending"} for row in rows]
+        return _csv_response(rows, "pending_servers.csv", include_status=True)
     if export_type == "all":
         rows = _filter_rows(data["itam_rows"], region, department)
-        return _csv_response(rows, "all_servers.csv")
+        integrated_keys = {(row.get("itam_id"), row.get("ip_address")) for row in data["integrated"]}
+        with_status = []
+        for row in rows:
+            key = (row.get("itam_id"), row.get("ip_address"))
+            status = "Integrated" if key in integrated_keys else "Pending"
+            with_status.append({**row, "status": status})
+        return _csv_response(with_status, "all_servers.csv", include_status=True)
 
     return redirect(url_for("admin"))
 
@@ -1117,13 +1415,21 @@ def export_department():
 
     if export_type == "integrated":
         rows = _filter_rows(data["integrated"], "", department)
-        return _csv_response(rows, "integrated_servers.csv")
+        rows = [{**row, "status": "Integrated"} for row in rows]
+        return _csv_response(rows, "integrated_servers.csv", include_status=True)
     if export_type == "pending":
         rows = _filter_rows(data["pending"], "", department)
-        return _csv_response(rows, "pending_servers.csv")
+        rows = [{**row, "status": "Pending"} for row in rows]
+        return _csv_response(rows, "pending_servers.csv", include_status=True)
     if export_type == "all":
         rows = _filter_rows(data["itam_rows"], "", department)
-        return _csv_response(rows, "all_servers.csv")
+        integrated_keys = {(row.get("itam_id"), row.get("ip_address")) for row in data["integrated"]}
+        with_status = []
+        for row in rows:
+            key = (row.get("itam_id"), row.get("ip_address"))
+            status = "Integrated" if key in integrated_keys else "Pending"
+            with_status.append({**row, "status": status})
+        return _csv_response(with_status, "all_servers.csv", include_status=True)
 
     return redirect(url_for("department_view"))
 
@@ -1144,13 +1450,21 @@ def export_admin_department(department: str):
 
     if export_type == "integrated":
         rows = _filter_rows(data["integrated"], region, department)
-        return _csv_response(rows, "integrated_servers.csv")
+        rows = [{**row, "status": "Integrated"} for row in rows]
+        return _csv_response(rows, "integrated_servers.csv", include_status=True)
     if export_type == "pending":
         rows = _filter_rows(data["pending"], region, department)
-        return _csv_response(rows, "pending_servers.csv")
+        rows = [{**row, "status": "Pending"} for row in rows]
+        return _csv_response(rows, "pending_servers.csv", include_status=True)
     if export_type == "all":
         rows = _filter_rows(data["itam_rows"], region, department)
-        return _csv_response(rows, "all_servers.csv")
+        integrated_keys = {(row.get("itam_id"), row.get("ip_address")) for row in data["integrated"]}
+        with_status = []
+        for row in rows:
+            key = (row.get("itam_id"), row.get("ip_address"))
+            status = "Integrated" if key in integrated_keys else "Pending"
+            with_status.append({**row, "status": status})
+        return _csv_response(with_status, "all_servers.csv", include_status=True)
 
     return redirect(url_for("admin_department", department=department))
 
@@ -1158,5 +1472,5 @@ def export_admin_department(department: str):
 if __name__ == "__main__":
     _init_db()
     _seed_admin()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=True)

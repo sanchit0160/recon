@@ -1,0 +1,26 @@
+﻿{
+  "name": "recon",
+  "description": "ITAM vs PIMS reconciliation app",
+  "repository": "",
+  "keywords": ["flask", "recon"],
+  "env": {
+    "SECRET_KEY": {
+      "description": "Flask secret key",
+      "generator": "secret"
+    },
+    "ADMIN_USER": {
+      "description": "Default admin username",
+      "value": "admin"
+    },
+    "ADMIN_PASS": {
+      "description": "Default admin password",
+      "value": "admin123"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}

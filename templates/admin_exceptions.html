@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Exception Reviews</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
   </head>
   <body>
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand">Recon</div>
+        <div class="brand">&#2360;</div>
         <nav class="nav">
           <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
@@ -73,56 +73,122 @@
 
       <div class="toolbar">
         <a class="ghost" href="{{ url_for('admin_export_submissions') }}">Export Audit CSV</a>
+        <a class="ghost" href="{{ url_for('admin_audit') }}">View Audit Log</a>
       </div>
 
       <section class="card">
+        <form method="get" class="filters">
+          <label>
+            Department
+            <select name="department">
+              <option value="">All</option>
+              {% for dept in departments %}
+                <option value="{{ dept }}" {% if dept == department %}selected{% endif %}>{{ dept }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Status
+            <select name="status">
+              <option value="">All</option>
+              <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+              <option value="approved" {% if status == 'approved' %}selected{% endif %}>Approved</option>
+              <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Rejected</option>
+            </select>
+          </label>
+          <button type="submit">Apply</button>
+          {% if department or status %}
+            <a class="link" href="{{ url_for('admin_exceptions') }}">Clear</a>
+          {% endif %}
+        </form>
+
         {% if submissions %}
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>department</th>
-                  <th>hostname</th>
-                  <th>ip_address</th>
-                  <th>submitted_by</th>
-                  <th>submitted_at</th>
-                  <th>age_days</th>
-                  <th>status</th>
-                  <th>review</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in submissions %}
-                  <tr>
-                    <td data-label="department">{{ item.department }}</td>
-                    <td data-label="hostname">{{ item.hostname }}</td>
-                    <td data-label="ip_address">{{ item.ip_address }}</td>
-                    <td data-label="submitted_by">{{ item.submitted_by }}</td>
-                    <td data-label="submitted_at">{{ item.submitted_at }}</td>
-                    <td data-label="age_days">
-                      {% if item.age_days > 7 %}
-                        <span class="badge status-overdue">{{ item.age_days }}d</span>
-                      {% else %}
-                        <span class="badge">{{ item.age_days }}d</span>
-                      {% endif %}
-                    </td>
-                    <td data-label="status">
-                      <span class="badge status-{{ item.admin_status }}">{{ item.admin_status }}</span>
-                    </td>
-                    <td data-label="review">
-                      <a class="ghost" href="{{ url_for('admin_exception_review', submission_id=item.id) }}">Review</a>
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+          <form method="post" action="{{ url_for('admin_exception_bulk') }}">
+            <div class="inline-actions">
+              <label class="field checkbox">
+                <input type="checkbox" name="verified" />
+                <span>Approval note verified</span>
+              </label>
+              <input type="text" name="remarks" placeholder="Remarks (optional)" />
+              <button type="submit" name="action" value="approved">Approve Selected</button>
+              <button type="submit" name="action" value="rejected">Reject Selected</button>
+            </div>
+            <div class="table-block">
+              <div class="table-actions">
+                <div class="table-controls">
+                  <input type="search" class="table-search" placeholder="Search exceptions..." />
+                  <select class="table-page-size">
+                    <option value="10">10 rows</option>
+                    <option value="25">25 rows</option>
+                    <option value="50">50 rows</option>
+                  </select>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th class="sortable">department</th>
+                      <th class="sortable">hostname</th>
+                      <th class="sortable">ip_address</th>
+                      <th class="sortable">reason</th>
+                      <th class="sortable">submitted_by</th>
+                      <th class="sortable">submitted_at</th>
+                      <th class="sortable">age_days</th>
+                      <th>exception</th>
+                      <th class="sortable">status</th>
+                      <th>review</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in submissions %}
+                      <tr>
+                        <td data-label="select">
+                          <input type="checkbox" name="submission_ids" value="{{ item.id }}" />
+                        </td>
+                        <td data-label="department">{{ item.department }}</td>
+                        <td data-label="hostname">{{ item.hostname }}</td>
+                        <td data-label="ip_address">{{ item.ip_address }}</td>
+                        <td data-label="reason">{{ item.exception_reason or '-' }}</td>
+                        <td data-label="submitted_by">{{ item.submitted_by }}</td>
+                        <td data-label="submitted_at">{{ item.submitted_at }}</td>
+                        <td data-label="age_days">
+                          {% if item.age_days > 7 %}
+                            <span class="badge status-overdue">{{ item.age_days }}d</span>
+                          {% else %}
+                            <span class="badge">{{ item.age_days }}d</span>
+                          {% endif %}
+                        </td>
+                        <td data-label="exception">
+                          <span class="badge exception">Exception</span>
+                        </td>
+                        <td data-label="status">
+                          <span class="badge status-{{ item.admin_status }}">{{ item.admin_status }}</span>
+                        </td>
+                        <td data-label="review">
+                          <a class="ghost" href="{{ url_for('admin_exception_review', submission_id=item.id) }}">Review</a>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer">
+                <button type="button" class="pager prev">Previous</button>
+                <span class="page-info"></span>
+                <button type="button" class="pager next">Next</button>
+              </div>
+            </div>
+          </form>
         {% else %}
           <p class="empty">No exception submissions yet.</p>
         {% endif %}
       </section>
       </main>
     </div>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='app.js') }}?v=20260205"></script>
   </body>
 </html>
+
+

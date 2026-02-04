@@ -1,0 +1,10 @@
+﻿version: "3.9"
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=change-me
+      - ADMIN_USER=admin
+      - ADMIN_PASS=admin123
