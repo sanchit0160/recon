@@ -1,0 +1,126 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Review Exception</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">Recon</div>
+        <nav class="nav">
+          <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M3 10.5l9-7 9 7"></path>
+              <path d="M5 9.5V20h14V9.5"></path>
+            </svg>
+            <span class="label">Dashboard</span>
+          </a>
+          <a class="nav-link" data-tooltip="Manage Users" href="{{ url_for('admin_users') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="8" cy="8" r="3"></circle>
+              <circle cx="17" cy="8" r="3"></circle>
+              <path d="M3 19c0-2.5 3-4 5-4"></path>
+              <path d="M12 15c2.5 0 5 1.5 5 4"></path>
+            </svg>
+            <span class="label">Manage Users</span>
+          </a>
+          <a class="nav-link active" data-tooltip="Exceptions" href="{{ url_for('admin_exceptions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 7v6"></path>
+              <circle cx="12" cy="17" r="1"></circle>
+            </svg>
+            <span class="label">Exceptions</span>
+          </a>
+          <a class="nav-link" data-tooltip="Audit Export" href="{{ url_for('admin_export_submissions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M12 3v12"></path>
+              <path d="M8 11l4 4 4-4"></path>
+              <path d="M5 19h14"></path>
+            </svg>
+            <span class="label">Audit Export</span>
+          </a>
+          <a class="nav-link" data-tooltip="Audit Log" href="{{ url_for('admin_audit') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M4 6h16"></path>
+              <path d="M4 12h16"></path>
+              <path d="M4 18h16"></path>
+            </svg>
+            <span class="label">Audit Log</span>
+          </a>
+        </nav>
+      </aside>
+      <main class="page">
+      <header class="hero row">
+        <div>
+          <h1>Review Exception</h1>
+          <p>Verify justification and approval note before deciding.</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+            <span class="icon-bars" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="theme-toggle" data-theme-toggle>Light mode</button>
+          <div class="user">
+            <span>Signed in as {{ user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+          </div>
+        </div>
+      </header>
+
+      {% if error %}
+        <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <section class="card">
+        <h2>Submission Details</h2>
+        <div class="summary">
+          <div><strong>Department</strong><span>{{ submission.department }}</span></div>
+          <div><strong>Hostname</strong><span>{{ submission.hostname }}</span></div>
+          <div><strong>IP Address</strong><span>{{ submission.ip_address }}</span></div>
+          <div><strong>Environment</strong><span>{{ submission.environment or '-' }}</span></div>
+          <div><strong>Region</strong><span>{{ submission.region or '-' }}</span></div>
+          <div><strong>Submitted By</strong><span>{{ submission.submitted_by }}</span></div>
+          <div><strong>Submitted At</strong><span>{{ submission.submitted_at }}</span></div>
+          <div><strong>Age</strong><span>{{ submission.age_days }} days</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Exception Details</h2>
+        <div class="summary">
+          <div><strong>Justification</strong><span>{{ submission.justification or '-' }}</span></div>
+          <div><strong>Approval Note</strong>
+            <span>
+              {% if note_filename %}
+                <a class="ghost" href="{{ url_for('download_upload', filename=note_filename) }}">Download Note</a>
+              {% else %}
+                -
+              {% endif %}
+            </span>
+          </div>
+          <div><strong>Current Status</strong><span class="badge status-{{ submission.admin_status }}">{{ submission.admin_status }}</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Review Decision</h2>
+        <form method="post" class="form">
+          <label class="field">
+            <span>Remarks</span>
+            <textarea name="remarks" rows="4"></textarea>
+          </label>
+          <div class="inline-actions">
+            <button type="submit" name="action" value="approved">Approve</button>
+            <button type="submit" name="action" value="rejected">Reject</button>
+          </div>
+        </form>
+      </section>
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

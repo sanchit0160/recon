@@ -1,0 +1,46 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ITAM vs PIMS Reconciliation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <h1>ITAM to PIMS Reconciliation</h1>
+        <p>Upload the ITAM Dump and the PIMS Active Service report to see which servers are integrated and which are still pending.</p>
+      </header>
+
+      {% if error %}
+        <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <section class="card">
+        <form method="post" enctype="multipart/form-data" class="form">
+          <label class="field">
+            <span>ITAM Dump (CSV)</span>
+            <div class="file-upload">
+              <input type="file" name="itam_report" accept=".csv" required />
+              <span class="file-label">Choose file</span>
+            </div>
+            <small>Required columns: itam_id, hostname, region, department, environment, ip_address</small>
+          </label>
+
+          <label class="field">
+            <span>PIMS Active Service Report (CSV)</span>
+            <div class="file-upload">
+              <input type="file" name="pims_report" accept=".csv" required />
+              <span class="file-label">Choose file</span>
+            </div>
+            <small>Include a column named ip_address or ip address</small>
+          </label>
+
+          <button type="submit">Reconcile</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
+

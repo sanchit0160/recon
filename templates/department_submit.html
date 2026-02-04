@@ -1,0 +1,117 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Submit Server</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">Recon</div>
+        <nav class="nav">
+          <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('department_view') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M3 10.5l9-7 9 7"></path>
+              <path d="M5 9.5V20h14V9.5"></path>
+            </svg>
+            <span class="label">Dashboard</span>
+          </a>
+          <a class="nav-link active" data-tooltip="Submit Server" href="{{ url_for('department_submit') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+            <span class="label">Submit Server</span>
+          </a>
+        </nav>
+      </aside>
+      <main class="page">
+      <header class="hero row">
+        <div>
+          <h1>Submit Server for Integration</h1>
+          <p>Provide server details. Mark exception if integration is blocked.</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+            <span class="icon-bars" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="theme-toggle" data-theme-toggle>Light mode</button>
+          <div class="user">
+            <span>Signed in as {{ user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+          </div>
+        </div>
+      </header>
+
+      {% if error %}
+        <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <section class="card">
+        <form method="post" enctype="multipart/form-data" class="form">
+          <label class="field">
+            <span>Hostname</span>
+            <input type="text" name="hostname" required />
+          </label>
+          <label class="field">
+            <span>IP Address</span>
+            <input type="text" name="ip_address" required />
+          </label>
+          <label class="field">
+            <span>Environment</span>
+            <input type="text" name="environment" />
+          </label>
+          <label class="field">
+            <span>Region</span>
+            <input type="text" name="region" />
+          </label>
+          <label class="field checkbox">
+            <input type="checkbox" name="is_exception" />
+            <span>Mark as exception</span>
+          </label>
+          <label class="field">
+            <span>Justification (for exception)</span>
+            <textarea name="justification" rows="4"></textarea>
+          </label>
+          <label class="field">
+            <span>Approval Note (optional upload)</span>
+            <div class="file-upload">
+              <input type="file" name="exception_note" />
+              <span class="file-label">Choose file</span>
+            </div>
+          </label>
+          <button type="submit">Submit</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Bulk Upload (CSV)</h2>
+        <p class="subtle">Required columns: hostname, ip_address. Optional: environment, region, is_exception, justification.</p>
+        {% if success %}
+          <div class="alert">{{ success }}</div>
+        {% endif %}
+        {% if errors %}
+          <div class="alert">
+            {% for item in errors %}
+              <div>{{ item }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <form method="post" action="{{ url_for('department_bulk_upload') }}" enctype="multipart/form-data" class="form">
+          <label class="field">
+            <span>Bulk CSV</span>
+            <div class="file-upload">
+              <input type="file" name="bulk_file" accept=".csv" required />
+              <span class="file-label">Choose file</span>
+            </div>
+          </label>
+          <button type="submit">Upload CSV</button>
+        </form>
+      </section>
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

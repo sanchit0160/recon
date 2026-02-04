@@ -1,0 +1,90 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reconciliation Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <h1>Reconciliation Results</h1>
+        <p>ITAM Total: {{ counts.itam_total }} · Integrated: {{ counts.integrated }} · Pending: {{ counts.pending }}</p>
+      </header>
+
+      <section class="card">
+        <h2>Integrated Servers</h2>
+        {% if integrated %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>itam_id</th>
+                  <th>hostname</th>
+                  <th>region</th>
+                  <th>department</th>
+                  <th>environment</th>
+                  <th>ip_address</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in integrated %}
+                  <tr>
+                    <td data-label="itam_id">{{ row.itam_id }}</td>
+                    <td data-label="hostname">{{ row.hostname }}</td>
+                    <td data-label="region">{{ row.region }}</td>
+                    <td data-label="department">{{ row.department }}</td>
+                    <td data-label="environment">{{ row.environment }}</td>
+                    <td data-label="ip_address">{{ row.ip_address }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty">No integrated servers found.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Pending Servers (Not in PIMS)</h2>
+        {% if pending %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>itam_id</th>
+                  <th>hostname</th>
+                  <th>region</th>
+                  <th>department</th>
+                  <th>environment</th>
+                  <th>ip_address</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in pending %}
+                  <tr>
+                    <td data-label="itam_id">{{ row.itam_id }}</td>
+                    <td data-label="hostname">{{ row.hostname }}</td>
+                    <td data-label="region">{{ row.region }}</td>
+                    <td data-label="department">{{ row.department }}</td>
+                    <td data-label="environment">{{ row.environment }}</td>
+                    <td data-label="ip_address">{{ row.ip_address }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty">All ITAM servers are integrated with PIMS.</p>
+        {% endif %}
+      </section>
+
+      <div class="actions">
+        <a href="/">Run another reconciliation</a>
+      </div>
+    </main>
+  </body>
+</html>
+

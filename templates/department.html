@@ -1,0 +1,213 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Department · ITAM vs PIMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">Recon</div>
+        <nav class="nav">
+          <a class="nav-link active" data-tooltip="Dashboard" href="{{ url_for('department_view') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M3 10.5l9-7 9 7"></path>
+              <path d="M5 9.5V20h14V9.5"></path>
+            </svg>
+            <span class="label">Dashboard</span>
+          </a>
+          <a class="nav-link" data-tooltip="Submit Server" href="{{ url_for('department_submit') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+            <span class="label">Submit Server</span>
+          </a>
+        </nav>
+      </aside>
+      <main class="page">
+      <header class="hero row">
+        <div>
+          <h1>Department View</h1>
+          <p>Showing reconciliation for {{ user.department }}.</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+            <span class="icon-bars" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="theme-toggle" data-theme-toggle>Light mode</button>
+          <div class="user">
+            <span>Signed in as {{ user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+          </div>
+        </div>
+      </header>
+
+      {% if not data_available %}
+        <section class="card">
+          <p class="empty">No reconciliation data available yet. Ask admin to upload reports.</p>
+        </section>
+      {% else %}
+        <section class="card">
+          <h2>Summary</h2>
+          <div class="summary">
+            <div>
+              <strong>Integrated</strong>
+              <span class="badge integrated">{{ counts.integrated }}</span>
+            </div>
+            <div>
+              <strong>Pending</strong>
+              <span class="badge pending">{{ counts.pending }}</span>
+            </div>
+          </div>
+          <div class="chart">
+            <div class="chart-labels">
+              <span>Integrated {{ counts.integrated }}</span>
+              <span>Pending {{ counts.pending }}</span>
+            </div>
+            <div class="chart-bar">
+              <span class="chart-integrated" style="width: {{ chart.integrated_pct }}%"></span>
+              <span class="chart-pending" style="width: {{ chart.pending_pct }}%"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-header">
+            <div>
+              <h2>Servers</h2>
+              <p class="subtle">All servers for your department.</p>
+            </div>
+            <div class="table-buttons">
+              <a class="ghost" href="{{ url_for('export_department', type='all') }}">Export All</a>
+              <a class="ghost" href="{{ url_for('export_department', type='integrated') }}">Export Integrated</a>
+              <a class="ghost" href="{{ url_for('export_department', type='pending') }}">Export Pending</a>
+            </div>
+          </div>
+
+          {% if all_rows %}
+            <div class="table-block" data-default-filter="all">
+              <div class="sticky-bar">
+                <span>Table Controls</span>
+                <button type="button" class="ghost" data-open-filters>Filters</button>
+              </div>
+              <div class="table-tabs">
+                <button type="button" class="tab active" data-filter="all">All ({{ counts.integrated + counts.pending }})</button>
+                <button type="button" class="tab" data-filter="Integrated">Integrated ({{ counts.integrated }})</button>
+                <button type="button" class="tab" data-filter="Pending">Pending ({{ counts.pending }})</button>
+              </div>
+              <div class="table-actions filter-panel">
+                <div class="table-controls">
+                  <input type="search" class="table-search" placeholder="Search servers..." />
+                  <select class="table-page-size">
+                    <option value="10">10 rows</option>
+                    <option value="25">25 rows</option>
+                    <option value="50">50 rows</option>
+                  </select>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="sortable">status</th>
+                      <th class="sortable">itam_id</th>
+                      <th class="sortable">hostname</th>
+                      <th class="sortable">region</th>
+                      <th class="sortable">department</th>
+                      <th class="sortable">environment</th>
+                      <th class="sortable">ip_address</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in all_rows %}
+                      <tr data-status="{{ row._status }}">
+                        <td data-label="status">
+                          <span class="badge {% if row._status == 'Integrated' %}integrated{% else %}pending{% endif %}">
+                            {{ row._status }}
+                          </span>
+                        </td>
+                        <td data-label="itam_id">{{ row.itam_id }}</td>
+                        <td data-label="hostname">{{ row.hostname }}</td>
+                        <td data-label="region">{{ row.region }}</td>
+                        <td data-label="department">{{ row.department }}</td>
+                        <td data-label="environment">{{ row.environment }}</td>
+                        <td data-label="ip_address">{{ row.ip_address }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer">
+                <button type="button" class="pager prev">Previous</button>
+                <span class="page-info"></span>
+                <button type="button" class="pager next">Next</button>
+              </div>
+            </div>
+          {% else %}
+            <p class="empty">No servers for this department.</p>
+          {% endif %}
+        </section>
+
+        <section class="card">
+          <h2>Integration Submissions</h2>
+          {% if submissions %}
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>hostname</th>
+                    <th>ip_address</th>
+                    <th>region</th>
+                    <th>environment</th>
+                    <th>exception</th>
+                    <th>status</th>
+                    <th>remarks</th>
+                    <th>submitted_at</th>
+                    <th>age_days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in submissions %}
+                    <tr>
+                      <td data-label="hostname">{{ item.hostname }}</td>
+                      <td data-label="ip_address">{{ item.ip_address }}</td>
+                      <td data-label="region">{{ item.region or '-' }}</td>
+                      <td data-label="environment">{{ item.environment or '-' }}</td>
+                      <td data-label="exception">
+                        {% if item.is_exception %}
+                          <span class="badge pending">Exception</span>
+                        {% else %}
+                          <span class="badge integrated">Normal</span>
+                        {% endif %}
+                      </td>
+                      <td data-label="status">
+                        <span class="badge status-{{ item.admin_status }}">{{ item.admin_status }}</span>
+                      </td>
+                      <td data-label="remarks">{{ item.admin_remarks or '-' }}</td>
+                      <td data-label="submitted_at">{{ item.submitted_at }}</td>
+                      <td data-label="age_days">
+                        {% if item.age_days > 7 %}
+                          <span class="badge status-overdue">{{ item.age_days }}d</span>
+                        {% else %}
+                          <span class="badge">{{ item.age_days }}d</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="empty">No submissions yet.</p>
+          {% endif %}
+        </section>
+      {% endif %}
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
+

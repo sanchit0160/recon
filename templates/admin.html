@@ -1,0 +1,295 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin · ITAM vs PIMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">Recon</div>
+        <nav class="nav">
+          <a class="nav-link active" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M3 10.5l9-7 9 7"></path>
+              <path d="M5 9.5V20h14V9.5"></path>
+            </svg>
+            <span class="label">Dashboard</span>
+          </a>
+          <a class="nav-link" data-tooltip="Manage Users" href="{{ url_for('admin_users') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="8" cy="8" r="3"></circle>
+              <circle cx="17" cy="8" r="3"></circle>
+              <path d="M3 19c0-2.5 3-4 5-4"></path>
+              <path d="M12 15c2.5 0 5 1.5 5 4"></path>
+            </svg>
+            <span class="label">Manage Users</span>
+          </a>
+          <a class="nav-link" data-tooltip="Exceptions" href="{{ url_for('admin_exceptions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 7v6"></path>
+              <circle cx="12" cy="17" r="1"></circle>
+            </svg>
+            <span class="label">Exceptions</span>
+          </a>
+          <a class="nav-link" data-tooltip="Audit Export" href="{{ url_for('admin_export_submissions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M12 3v12"></path>
+              <path d="M8 11l4 4 4-4"></path>
+              <path d="M5 19h14"></path>
+            </svg>
+            <span class="label">Audit Export</span>
+          </a>
+          <a class="nav-link" data-tooltip="Audit Log" href="{{ url_for('admin_audit') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M4 6h16"></path>
+              <path d="M4 12h16"></path>
+              <path d="M4 18h16"></path>
+            </svg>
+            <span class="label">Audit Log</span>
+          </a>
+        </nav>
+      </aside>
+      <main class="page">
+      <header class="hero row">
+        <div>
+          <h1>Admin Dashboard</h1>
+          <p>Upload ITAM and PIMS reports, then filter by region and department.</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+            <span class="icon-bars" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="theme-toggle" data-theme-toggle>Light mode</button>
+          <div class="user">
+            <span>Signed in as {{ user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+          </div>
+        </div>
+      </header>
+
+      {% if error %}
+        <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <section class="card">
+        <h2>Upload Reports</h2>
+        <form method="post" enctype="multipart/form-data" class="form">
+          <label class="field">
+            <span>ITAM Dump (CSV)</span>
+            <div class="file-upload">
+              <input type="file" name="itam_report" accept=".csv" required />
+              <span class="file-label">Choose file</span>
+            </div>
+            <small>Required: itam_id, hostname, region, department, environment, ip_address</small>
+          </label>
+
+          <label class="field">
+            <span>PIMS Active Service Report (CSV)</span>
+            <div class="file-upload">
+              <input type="file" name="pims_report" accept=".csv" required />
+              <span class="file-label">Choose file</span>
+            </div>
+            <small>Include a column named ip_address or ip address</small>
+          </label>
+
+          <button type="submit">Reconcile</button>
+        </form>
+      </section>
+
+      {% if data %}
+      <section class="card">
+        <h2>Summary</h2>
+        <div class="summary">
+          <div>
+            <strong>Total ITAM servers</strong>
+            <span>{{ filtered_counts.itam_total }}</span>
+          </div>
+          <div>
+            <strong>Integrated</strong>
+            <span class="badge integrated">{{ filtered_counts.integrated }}</span>
+          </div>
+          <div>
+            <strong>Pending</strong>
+            <span class="badge pending">{{ filtered_counts.pending }}</span>
+          </div>
+          <div>
+            <strong>Last Reconciled</strong>
+            <span>{{ data.reconciled_at }}</span>
+          </div>
+          <div>
+            <strong>Regions</strong>
+            <span>{{ metrics.region_count }}</span>
+          </div>
+          <div>
+            <strong>Departments</strong>
+            <span>{{ metrics.department_count }}</span>
+          </div>
+          <div>
+            <strong>Pending Rate</strong>
+            <span>{{ metrics.pending_rate }}%</span>
+          </div>
+          <div>
+            <strong>Integrated Rate</strong>
+            <span>{{ metrics.integrated_rate }}%</span>
+          </div>
+        </div>
+        <div class="chart">
+          <div class="chart-labels">
+            <span>Integrated {{ filtered_counts.integrated }}</span>
+            <span>Pending {{ filtered_counts.pending }}</span>
+          </div>
+          <div class="chart-bar">
+            <span class="chart-integrated" style="width: {{ chart.integrated_pct }}%"></span>
+            <span class="chart-pending" style="width: {{ chart.pending_pct }}%"></span>
+          </div>
+        </div>
+
+          <form method="get" class="filters" data-dept-map='{{ dept_map | tojson }}'>
+            <label>
+              Region
+              <select name="region">
+                <option value="">All</option>
+                {% for item in data.regions %}
+                  <option value="{{ item }}" {% if item == region %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Department
+              <select name="department">
+                <option value="">All</option>
+                {% for item in filtered_departments %}
+                  <option value="{{ item }}" {% if item == department %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button type="submit">Apply</button>
+            {% if region or department %}
+              <a class="link" href="{{ url_for('admin') }}">Clear</a>
+            {% endif %}
+          </form>
+
+          {% if region or department %}
+            <p class="subtle">
+              Filters:
+              {% if region %}<span class="badge">{{ region }}</span>{% endif %}
+              {% if department %}<span class="badge">{{ department }}</span>{% endif %}
+            </p>
+          {% endif %}
+
+          <h3 class="section-title">Regions</h3>
+          <div class="dept-grid">
+            {% for item in summary_regions %}
+              <a class="dept-card" href="{{ url_for('admin', region=item.region) }}">
+                <strong>{{ item.region }}</strong>
+                <span>Total {{ item.total }}</span>
+                <span>Integrated {{ item.integrated }}</span>
+                <span>Pending {{ item.pending }}</span>
+              </a>
+            {% endfor %}
+          </div>
+
+          <h3 class="section-title">Departments</h3>
+          <div class="dept-grid">
+            {% for item in summary %}
+              <a class="dept-card" href="{{ url_for('admin_department', department=item.department, region=region) }}">
+                <strong>{{ item.department }}</strong>
+                <span>Total {{ item.total }}</span>
+                <span>Integrated {{ item.integrated }}</span>
+                <span>Pending {{ item.pending }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-header">
+            <div>
+              <h2>Servers</h2>
+              <p class="subtle">All servers based on current filters.</p>
+            </div>
+            <div class="table-buttons">
+              <a class="ghost" href="{{ url_for('export_admin', type='all', region=region, department=department) }}">Export All</a>
+              <a class="ghost" href="{{ url_for('export_admin', type='integrated', region=region, department=department) }}">Export Integrated</a>
+              <a class="ghost" href="{{ url_for('export_admin', type='pending', region=region, department=department) }}">Export Pending</a>
+            </div>
+          </div>
+
+          {% if all_rows %}
+            <div class="table-block" data-default-filter="all">
+              <div class="sticky-bar">
+                <span>Table Controls</span>
+                <button type="button" class="ghost" data-open-filters>Filters</button>
+              </div>
+              <div class="table-tabs">
+                <button type="button" class="tab active" data-filter="all">All ({{ filtered_counts.itam_total }})</button>
+                <button type="button" class="tab" data-filter="Integrated">Integrated ({{ filtered_counts.integrated }})</button>
+                <button type="button" class="tab" data-filter="Pending">Pending ({{ filtered_counts.pending }})</button>
+              </div>
+              <div class="table-actions filter-panel">
+                <div class="table-controls">
+                  <input type="search" class="table-search" placeholder="Search servers..." />
+                  <select class="table-page-size">
+                    <option value="10">10 rows</option>
+                    <option value="25">25 rows</option>
+                    <option value="50">50 rows</option>
+                  </select>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="sortable">status</th>
+                      <th class="sortable">itam_id</th>
+                      <th class="sortable">hostname</th>
+                      <th class="sortable">region</th>
+                      <th class="sortable">department</th>
+                      <th class="sortable">environment</th>
+                      <th class="sortable">ip_address</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in all_rows %}
+                      <tr data-status="{{ row._status }}">
+                        <td data-label="status">
+                          <span class="badge {% if row._status == 'Integrated' %}integrated{% else %}pending{% endif %}">
+                            {{ row._status }}
+                          </span>
+                        </td>
+                        <td data-label="itam_id">{{ row.itam_id }}</td>
+                        <td data-label="hostname">{{ row.hostname }}</td>
+                        <td data-label="region">{{ row.region }}</td>
+                        <td data-label="department">{{ row.department }}</td>
+                        <td data-label="environment">{{ row.environment }}</td>
+                        <td data-label="ip_address">{{ row.ip_address }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer">
+                <button type="button" class="pager prev">Previous</button>
+                <span class="page-info"></span>
+                <button type="button" class="pager next">Next</button>
+              </div>
+            </div>
+          {% else %}
+            <p class="empty">No servers match this filter.</p>
+          {% endif %}
+        </section>
+      {% else %}
+        <section class="card">
+          <p class="empty">No reconciliation data yet. Upload reports to begin.</p>
+        </section>
+      {% endif %}
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
+

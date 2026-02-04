@@ -1,0 +1,56 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login · ITAM vs PIMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body class="center">
+    <main class="page">
+      <div class="toolbar">
+        <button type="button" class="theme-toggle" data-theme-toggle>Light mode</button>
+      </div>
+      <header class="hero">
+        <h1>Sign in</h1>
+        <p>Admin and department users have different views. Use your assigned credentials.</p>
+      </header>
+
+      {% if error %}
+        <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <section class="card narrow">
+        <form method="post" class="form">
+          <label class="field">
+            <span>Username</span>
+            <input type="text" name="username" list="usernames" required />
+            <datalist id="usernames">
+              <option value="admin"></option>
+              <option value="sales_user"></option>
+              <option value="hr_user"></option>
+            </datalist>
+          </label>
+
+          <label class="field">
+            <span>Password</span>
+            <input type="password" name="password" required />
+          </label>
+
+          <button type="submit">Login</button>
+        </form>
+        <div class="login-hint">
+          <p class="subtle">Default admin (first run):</p>
+          <div class="hint-grid">
+            <div>
+              <strong>Admin</strong>
+              <span>admin / admin123</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
+

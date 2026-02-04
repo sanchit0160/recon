@@ -1,0 +1,155 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">Recon</div>
+        <nav class="nav">
+          <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M3 10.5l9-7 9 7"></path>
+              <path d="M5 9.5V20h14V9.5"></path>
+            </svg>
+            <span class="label">Dashboard</span>
+          </a>
+          <a class="nav-link active" data-tooltip="Manage Users" href="{{ url_for('admin_users') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="8" cy="8" r="3"></circle>
+              <circle cx="17" cy="8" r="3"></circle>
+              <path d="M3 19c0-2.5 3-4 5-4"></path>
+              <path d="M12 15c2.5 0 5 1.5 5 4"></path>
+            </svg>
+            <span class="label">Manage Users</span>
+          </a>
+          <a class="nav-link" data-tooltip="Exceptions" href="{{ url_for('admin_exceptions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 7v6"></path>
+              <circle cx="12" cy="17" r="1"></circle>
+            </svg>
+            <span class="label">Exceptions</span>
+          </a>
+          <a class="nav-link" data-tooltip="Audit Export" href="{{ url_for('admin_export_submissions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M12 3v12"></path>
+              <path d="M8 11l4 4 4-4"></path>
+              <path d="M5 19h14"></path>
+            </svg>
+            <span class="label">Audit Export</span>
+          </a>
+          <a class="nav-link" data-tooltip="Audit Log" href="{{ url_for('admin_audit') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M4 6h16"></path>
+              <path d="M4 12h16"></path>
+              <path d="M4 18h16"></path>
+            </svg>
+            <span class="label">Audit Log</span>
+          </a>
+        </nav>
+      </aside>
+      <main class="page">
+      <header class="hero row">
+        <div>
+          <h1>Manage Users</h1>
+          <p>Create logins for each department and manage access.</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+            <span class="icon-bars" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="theme-toggle" data-theme-toggle>Light mode</button>
+          <div class="user">
+            <span>Signed in as {{ user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+          </div>
+        </div>
+      </header>
+
+      {% if error %}
+        <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <section class="card">
+        <h2>Create User</h2>
+        <form method="post" class="form">
+          <label class="field">
+            <span>Username</span>
+            <input type="text" name="username" required />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" name="password" required />
+          </label>
+          <label class="field">
+            <span>Role</span>
+            <select name="role" required>
+              <option value="admin">Admin</option>
+              <option value="department">Department</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Department (for department role)</span>
+            <input type="text" name="department" list="dept-options" />
+            {% if departments %}
+              <datalist id="dept-options">
+                {% for dept in departments %}
+                  <option value="{{ dept }}"></option>
+                {% endfor %}
+              </datalist>
+            {% endif %}
+          </label>
+          <button type="submit">Create User</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Existing Users</h2>
+        {% if users %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>username</th>
+                  <th>role</th>
+                  <th>department</th>
+                  <th>actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in users %}
+                  <tr>
+                    <td data-label="username">{{ item.username }}</td>
+                    <td data-label="role">{{ item.role }}</td>
+                    <td data-label="department">{{ item.department or '-' }}</td>
+                    <td data-label="actions">
+                      {% if item.id != user.id %}
+                        <div class="inline-actions">
+                          <a class="ghost" href="{{ url_for('admin_user_edit', user_id=item.id) }}">Edit / Reset</a>
+                          <form method="post" action="{{ url_for('admin_user_delete', user_id=item.id) }}">
+                            <button type="submit">Delete</button>
+                          </form>
+                        </div>
+                      {% else %}
+                        <span class="subtle">Current user</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty">No users yet.</p>
+        {% endif %}
+      </section>
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

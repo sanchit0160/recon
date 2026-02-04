@@ -1,0 +1,114 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Edit User</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">Recon</div>
+        <nav class="nav">
+          <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M3 10.5l9-7 9 7"></path>
+              <path d="M5 9.5V20h14V9.5"></path>
+            </svg>
+            <span class="label">Dashboard</span>
+          </a>
+          <a class="nav-link active" data-tooltip="Manage Users" href="{{ url_for('admin_users') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="8" cy="8" r="3"></circle>
+              <circle cx="17" cy="8" r="3"></circle>
+              <path d="M3 19c0-2.5 3-4 5-4"></path>
+              <path d="M12 15c2.5 0 5 1.5 5 4"></path>
+            </svg>
+            <span class="label">Manage Users</span>
+          </a>
+          <a class="nav-link" data-tooltip="Exceptions" href="{{ url_for('admin_exceptions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 7v6"></path>
+              <circle cx="12" cy="17" r="1"></circle>
+            </svg>
+            <span class="label">Exceptions</span>
+          </a>
+          <a class="nav-link" data-tooltip="Audit Export" href="{{ url_for('admin_export_submissions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M12 3v12"></path>
+              <path d="M8 11l4 4 4-4"></path>
+              <path d="M5 19h14"></path>
+            </svg>
+            <span class="label">Audit Export</span>
+          </a>
+          <a class="nav-link" data-tooltip="Audit Log" href="{{ url_for('admin_audit') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M4 6h16"></path>
+              <path d="M4 12h16"></path>
+              <path d="M4 18h16"></path>
+            </svg>
+            <span class="label">Audit Log</span>
+          </a>
+        </nav>
+      </aside>
+      <main class="page">
+      <header class="hero row">
+        <div>
+          <h1>Edit User</h1>
+          <p>Update role, department, or reset the password.</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+            <span class="icon-bars" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="theme-toggle" data-theme-toggle>Light mode</button>
+          <div class="user">
+            <span>Signed in as {{ user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+          </div>
+        </div>
+      </header>
+
+      {% if error %}
+        <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <section class="card">
+        <h2>Update User</h2>
+        <form method="post" class="form">
+          <label class="field">
+            <span>Username</span>
+            <input type="text" name="username" value="{{ target.username }}" required />
+          </label>
+          <label class="field">
+            <span>Role</span>
+            <select name="role" required>
+              <option value="admin" {% if target.role == 'admin' %}selected{% endif %}>Admin</option>
+              <option value="department" {% if target.role == 'department' %}selected{% endif %}>Department</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Department (for department role)</span>
+            <input type="text" name="department" value="{{ target.department or '' }}" list="dept-options" />
+            {% if departments %}
+              <datalist id="dept-options">
+                {% for dept in departments %}
+                  <option value="{{ dept }}"></option>
+                {% endfor %}
+              </datalist>
+            {% endif %}
+          </label>
+          <label class="field">
+            <span>New Password (leave blank to keep current)</span>
+            <input type="password" name="password" />
+          </label>
+          <button type="submit">Save Changes</button>
+        </form>
+      </section>
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
