@@ -181,28 +181,122 @@
             </p>
           {% endif %}
 
-          <h3 class="section-title">Regions</h3>
-          <div class="dept-grid">
-            {% for item in summary_regions %}
-              <a class="dept-card" href="{{ url_for('admin', region=item.region) }}">
-                <strong>{{ item.region }}</strong>
-                <span>Total {{ item.total }}</span>
-                <span>Integrated {{ item.integrated }}</span>
-                <span>Pending {{ item.pending }}</span>
-              </a>
-            {% endfor %}
+          {% set top_region = ((summary_regions | sort(attribute='pending', reverse=true) | first)) %}
+          {% set top_dept = ((summary | sort(attribute='pending', reverse=true) | first)) %}
+          <div class="insights-grid">
+            <div class="insight-card">
+              <h3>Insights</h3>
+              <div class="insight-row">
+                <span>Top Pending Region</span>
+                <strong>{{ top_region.region if top_region else '-' }}</strong>
+              </div>
+              <div class="insight-row">
+                <span>Top Pending Department</span>
+                <strong>{{ top_dept.department if top_dept else '-' }}</strong>
+              </div>
+              <div class="insight-row">
+                <span>Pending vs Integrated</span>
+                <strong>{{ filtered_counts.pending }} / {{ filtered_counts.integrated }}</strong>
+              </div>
+            </div>
+            <div class="insight-card">
+              <h3>Top Pending Regions</h3>
+              <ol class="rank-list">
+                {% for item in top_regions %}
+                  <li>
+                    <span>{{ item.region }}</span>
+                    <strong>{{ item.pending }}</strong>
+                  </li>
+                {% endfor %}
+              </ol>
+            </div>
+            <div class="insight-card">
+              <h3>Top Pending Departments</h3>
+              <ol class="rank-list">
+                {% for item in top_departments %}
+                  <li>
+                    <span>{{ item.department }}</span>
+                    <strong>{{ item.pending }}</strong>
+                  </li>
+                {% endfor %}
+              </ol>
+            </div>
           </div>
 
-          <h3 class="section-title">Departments</h3>
-          <div class="dept-grid">
-            {% for item in summary %}
-              <a class="dept-card" href="{{ url_for('admin_department', department=item.department, region=region) }}">
-                <strong>{{ item.department }}</strong>
-                <span>Total {{ item.total }}</span>
-                <span>Integrated {{ item.integrated }}</span>
-                <span>Pending {{ item.pending }}</span>
-              </a>
-            {% endfor %}
+          <div class="chip-section">
+            <h3 class="section-title">Quick Filters</h3>
+            <div class="chip-row">
+              {% for item in summary_regions %}
+                <a class="chip" href="{{ url_for('admin', region=item.region) }}">{{ item.region }}</a>
+              {% endfor %}
+            </div>
+            <div class="chip-row">
+              {% for item in summary %}
+                <a class="chip" href="{{ url_for('admin_department', department=item.department, region=region) }}">{{ item.department }}</a>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="compact-tabs" data-tab-group>
+            <div class="tab-header">
+              <h3 class="section-title">Coverage Breakdown</h3>
+              <div class="tab-buttons">
+                <button type="button" class="tab active" data-tab-target="regions">Regions</button>
+                <button type="button" class="tab" data-tab-target="departments">Departments</button>
+              </div>
+            </div>
+            <div class="tab-panel active" data-tab-panel="regions">
+              <div class="table-wrap compact-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Region</th>
+                      <th>Total</th>
+                      <th>Integrated</th>
+                      <th>Pending</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in summary_regions %}
+                      <tr>
+                        <td>{{ item.region }}</td>
+                        <td>{{ item.total }}</td>
+                        <td>{{ item.integrated }}</td>
+                        <td>{{ item.pending }}</td>
+                        <td><a class="ghost" href="{{ url_for('admin', region=item.region) }}">View</a></td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="tab-panel" data-tab-panel="departments">
+              <div class="table-wrap compact-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Department</th>
+                      <th>Total</th>
+                      <th>Integrated</th>
+                      <th>Pending</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in summary %}
+                      <tr>
+                        <td>{{ item.department }}</td>
+                        <td>{{ item.total }}</td>
+                        <td>{{ item.integrated }}</td>
+                        <td>{{ item.pending }}</td>
+                        <td><a class="ghost" href="{{ url_for('admin_department', department=item.department, region=region) }}">View</a></td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </section>
 

@@ -202,11 +202,11 @@
                         </td>
                         <td data-label="timeline">
                           {% if item.admin_status == 'pending' %}
-                            Submitted ? Under Review
+                            Submitted &rarr; Under Review
                           {% elif item.admin_status == 'approved' %}
-                            Submitted ? Approved
+                            Submitted &rarr; Approved
                           {% elif item.admin_status == 'rejected' %}
-                            Submitted ? Rejected
+                            Submitted &rarr; Rejected
                           {% else %}
                             Submitted
                           {% endif %}
