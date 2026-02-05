@@ -32,3 +32,8 @@ def ensure_admin_can_change(target_role: str, current_role: str):
 def ensure_admin_can_delete(target_role: str):
     if target_role == "admin" and count_admins() <= 1:
         raise UserServiceError("At least one admin is required.")
+
+
+def change_password(user_id: int, new_password: str):
+    from ..db import update_user_password
+    update_user_password(user_id, new_password)

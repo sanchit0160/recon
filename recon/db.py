@@ -325,3 +325,16 @@ def review_exception(submission_id: int, status: str, remarks: str, reviewer: st
         conn.commit()
     finally:
         conn.close()
+
+
+def update_user_password(user_id: int, password: str):
+    from werkzeug.security import generate_password_hash
+    conn = db_connect()
+    try:
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (generate_password_hash(password), user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()

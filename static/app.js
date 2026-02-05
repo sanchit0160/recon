@@ -338,6 +338,19 @@
     });
   }
 
+
+  function setupPasswordToggles() {
+    document.querySelectorAll('[data-toggle-password]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = btn.parentElement?.querySelector('input');
+        if (!input) return;
+        const isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        btn.textContent = isHidden ? 'Hide' : 'Show';
+      });
+    });
+  }
+
   function setupSubmissionForm() {
     const form = document.querySelector(".submission-form");
     if (!form) return;
@@ -505,6 +518,7 @@
     guard(setupThemeToggle, "setupThemeToggle");
     guard(setupSidebarToggle, "setupSidebarToggle");
     guard(setupSubmissionForm, "setupSubmissionForm");
+    guard(setupPasswordToggles, "setupPasswordToggles");
     guard(setupCompactTabs, "setupCompactTabs");
     window.__appInit = true;
   }

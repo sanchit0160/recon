@@ -1220,3 +1220,28 @@ th.sortable::after {
     min-width: 100%;
   }
 }
+
+
+.password-field {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.password-field input {
+  flex: 1;
+}
+
+.password-hint {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--card-alt);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.password-hint ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
