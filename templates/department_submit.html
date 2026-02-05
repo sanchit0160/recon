@@ -130,21 +130,35 @@
             {% endif %}
           </label>
           <label class="field">
-            <span>Exception Reason</span>
-            <select name="exception_reason">
-              <option value="">Select reason (if exception)</option>
-              <option value="vendor_block">Vendor Block</option>
-              <option value="network_limitation">Network Limitation</option>
-              <option value="security_risk">Security Risk</option>
-              <option value="maintenance_window">Maintenance Window</option>
-              <option value="other">Other</option>
-            </select>
+            <span>Submission Type</span>
+            <div class="radio-group" data-submission-type>
+              <label class="radio-option">
+                <input type="radio" name="submission_type" value="standard" checked />
+                <span>Standard</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="submission_type" value="exception" />
+                <span>Exception</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="submission_type" value="proxy_integrated" />
+                <span>Already Integrated (Proxy IPs)</span>
+              </label>
+            </div>
           </label>
-          <label class="field checkbox">
-            <input type="checkbox" name="is_exception" id="is_exception" />
-            <span>Mark as exception</span>
-          </label>
-          <div class="exception-panel">
+
+          <div class="exception-panel hidden">
+            <label class="field">
+              <span>Exception Reason</span>
+              <select name="exception_reason">
+                <option value="">Select reason</option>
+                <option value="vendor_block">Vendor Block</option>
+                <option value="network_limitation">Network Limitation</option>
+                <option value="security_risk">Security Risk</option>
+                <option value="maintenance_window">Maintenance Window</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
             <label class="field">
               <span>Justification (for exception)</span>
               <textarea name="justification" rows="4"></textarea>
@@ -156,7 +170,7 @@
                 <span class="file-label">Choose file</span>
               </div>
               <small>
-                Need a template? 
+                Need a template?
                 <a class="ghost" href="{{ url_for('static', filename='sample_approval_note.txt') }}">Download sample note</a>
               </small>
             </label>
@@ -169,13 +183,40 @@
               </ul>
             </div>
           </div>
+
+          <div class="proxy-panel hidden">
+            <label class="field">
+              <span>Management IP (already integrated)</span>
+              <input type="text" name="proxy_mgmt_ip" />
+            </label>
+            <label class="field">
+              <span>Cluster IP (already integrated)</span>
+              <input type="text" name="proxy_cluster_ip" />
+            </label>
+            <label class="field">
+              <span>Backup IP (already integrated)</span>
+              <input type="text" name="proxy_backup_ip" />
+            </label>
+            <label class="field">
+              <span>Remark (why it is already integrated)</span>
+              <textarea name="proxy_details" rows="3"></textarea>
+            </label>
+            <div class="checklist">
+              <strong>Proxy integration note</strong>
+              <ul>
+                <li>Provide at least one related IP</li>
+                <li>Explain why this proves integration</li>
+                <li>Admin approval required</li>
+              </ul>
+            </div>
+          </div>
           <button type="submit">Submit</button>
         </form>
       </section>
 
       <section class="card">
         <h2>Bulk Upload (CSV)</h2>
-        <p class="subtle">Required columns: itam_id, hostname, ip_address. Optional: environment, region, is_exception, exception_reason, justification.</p>
+        <p class="subtle">Required columns: itam_id, hostname, ip_address. Optional: environment, region, submission_type, exception_reason, justification, proxy_mgmt_ip, proxy_cluster_ip, proxy_backup_ip, proxy_details.</p>
         <div class="inline-actions">
           <a class="ghost" href="{{ url_for('department_bulk_template') }}">Download CSV Template</a>
         </div>
@@ -188,9 +229,13 @@
                 <th>ip_address</th>
                 <th>environment</th>
                 <th>region</th>
-                <th>is_exception</th>
+                <th>submission_type</th>
                 <th>exception_reason</th>
                 <th>justification</th>
+                <th>proxy_mgmt_ip</th>
+                <th>proxy_cluster_ip</th>
+                <th>proxy_backup_ip</th>
+                <th>proxy_details</th>
               </tr>
             </thead>
             <tbody>
@@ -200,9 +245,13 @@
                 <td data-label="ip_address">10.10.10.12</td>
                 <td data-label="environment">Prod</td>
                 <td data-label="region">APAC</td>
-                <td data-label="is_exception">yes</td>
+                <td data-label="submission_type">exception</td>
                 <td data-label="exception_reason">vendor_block</td>
                 <td data-label="justification">Vendor approval pending</td>
+                <td data-label="proxy_mgmt_ip">10.10.10.200</td>
+                <td data-label="proxy_cluster_ip">10.10.10.201</td>
+                <td data-label="proxy_backup_ip">10.10.10.202</td>
+                <td data-label="proxy_details">Mgmt/cluster already onboarded in PIMS</td>
               </tr>
             </tbody>
           </table>

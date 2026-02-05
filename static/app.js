@@ -355,10 +355,24 @@
     const form = document.querySelector(".submission-form");
     if (!form) return;
 
-    const fields = ["itam_id", "hostname", "ip_address", "environment", "region", "justification", "exception_reason"];
+    const fields = [
+      "itam_id",
+      "hostname",
+      "ip_address",
+      "environment",
+      "region",
+      "justification",
+      "exception_reason",
+      "submission_type",
+      "proxy_mgmt_ip",
+      "proxy_cluster_ip",
+      "proxy_backup_ip",
+      "proxy_details",
+    ];
     const draftKey = "submission_draft";
-    const exceptionToggle = form.querySelector("#is_exception");
+    const submissionTypeInputs = Array.from(form.querySelectorAll('input[name="submission_type"]'));
     const exceptionPanel = form.querySelector(".exception-panel");
+    const proxyPanel = form.querySelector(".proxy-panel");
 
     const saved = localStorage.getItem(draftKey);
     if (saved) {
@@ -366,10 +380,14 @@
         const data = JSON.parse(saved);
         fields.forEach((name) => {
           const input = form.querySelector(`[name="${name}"]`);
-        if (input && data[name]) {
-          input.value = data[name];
-        }
-      });
+          if (!input || !data[name]) return;
+          if (input.type === "radio") {
+            const match = form.querySelector(`[name="${name}"][value="${data[name]}"]`);
+            if (match) match.checked = true;
+          } else {
+            input.value = data[name];
+          }
+        });
       } catch (err) {}
     }
 
@@ -377,7 +395,13 @@
       const data = {};
       fields.forEach((name) => {
         const input = form.querySelector(`[name="${name}"]`);
-        if (input) {
+        if (!input) return;
+        if (input.type === "radio") {
+          const checked = form.querySelector(`[name="${name}"]:checked`);
+          if (checked) {
+            data[name] = checked.value;
+          }
+        } else {
           data[name] = input.value;
         }
       });
@@ -459,15 +483,21 @@
       matchCard.appendChild(clearBtn);
     }
 
-    function updateExceptionPanel() {
-      if (!exceptionPanel || !exceptionToggle) return;
-      exceptionPanel.classList.toggle("hidden", !exceptionToggle.checked);
+    function updatePanels() {
+      if (!submissionTypeInputs.length) return;
+      const selected = submissionTypeInputs.find((input) => input.checked)?.value || "standard";
+      if (exceptionPanel) {
+        exceptionPanel.classList.toggle("hidden", selected !== "exception");
+      }
+      if (proxyPanel) {
+        proxyPanel.classList.toggle("hidden", selected !== "proxy_integrated");
+      }
     }
 
-    if (exceptionToggle) {
-      exceptionToggle.addEventListener("change", updateExceptionPanel);
-      updateExceptionPanel();
-    }
+    submissionTypeInputs.forEach((input) => {
+      input.addEventListener("change", updatePanels);
+    });
+    updatePanels();
 
     function validate() {
       const issues = [];
@@ -479,6 +509,13 @@
       if (ip && !/^\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?$/.test(ip)) {
         issues.push("IP address looks invalid.");
       }
+      const proxyFields = ["proxy_mgmt_ip", "proxy_cluster_ip", "proxy_backup_ip"];
+      proxyFields.forEach((name) => {
+        const value = form.querySelector(`[name="${name}"]`)?.value || "";
+        if (value && !/^\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?$/.test(value)) {
+          issues.push(`Proxy IP looks invalid: ${name.replace("proxy_", "").replace("_", " ")}`);
+        }
+      });
       validationBox.textContent = issues.join(" ");
     }
 

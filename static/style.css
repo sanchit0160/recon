@@ -392,6 +392,36 @@ textarea {
   display: none;
 }
 
+.proxy-panel {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+  background: var(--card-alt);
+}
+
+.proxy-panel.hidden {
+  display: none;
+}
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card-alt);
+  font-weight: 600;
+}
+
 .checklist {
   border-top: 1px solid var(--border);
   padding-top: 10px;

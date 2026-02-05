@@ -17,6 +17,9 @@ from .utils import (
     is_valid_ip,
     itam_lookup,
     read_csv,
+    build_status_overrides,
+    adjust_counts,
+    submission_key,
 )
 from .services.export_service import build_csv_download
 
@@ -127,7 +130,12 @@ def register_routes(app):
             ip_address = (request.form.get("ip_address") or "").strip()
             environment = (request.form.get("environment") or "").strip()
             region = (request.form.get("region") or "").strip()
-            is_exception = (request.form.get("is_exception") or "") == "on"
+            submission_type = (request.form.get("submission_type") or "standard").strip()
+            is_exception = submission_type == "exception"
+            proxy_mgmt_ip = (request.form.get("proxy_mgmt_ip") or "").strip()
+            proxy_cluster_ip = (request.form.get("proxy_cluster_ip") or "").strip()
+            proxy_backup_ip = (request.form.get("proxy_backup_ip") or "").strip()
+            proxy_details = (request.form.get("proxy_details") or "").strip()
             justification = (request.form.get("justification") or "").strip()
             exception_reason = (request.form.get("exception_reason") or "").strip()
             note_file = request.files.get("exception_note")
@@ -144,6 +152,10 @@ def register_routes(app):
                 error = "Approval note attachment is required for exceptions."
             elif is_exception and not exception_reason:
                 error = "Please select an exception reason."
+            elif submission_type == "proxy_integrated" and not (proxy_mgmt_ip or proxy_cluster_ip or proxy_backup_ip):
+                error = "Provide at least one related IP (management/cluster/backup)."
+            elif submission_type == "proxy_integrated" and not proxy_details:
+                error = "Please add a remark explaining the related integration."
             elif submission_exists(user["department"] or "", hostname, ip_address):
                 error = "A pending submission for this server already exists."
             else:
@@ -158,6 +170,12 @@ def register_routes(app):
                     justification=justification,
                     exception_reason=exception_reason,
                     submitted_by=user["username"],
+                    itam_id=itam_id,
+                    submission_type=submission_type,
+                    proxy_mgmt_ip=proxy_mgmt_ip,
+                    proxy_cluster_ip=proxy_cluster_ip,
+                    proxy_backup_ip=proxy_backup_ip,
+                    proxy_details=proxy_details,
                 )
                 return redirect(url_for("department_view"))
 
@@ -209,9 +227,16 @@ def register_routes(app):
             ip_address = (row.get("ip_address") or "").strip()
             environment = (row.get("environment") or "").strip()
             region = (row.get("region") or "").strip()
-            is_exception = (row.get("is_exception") or "").strip().lower() in {"yes", "true", "1"}
+            submission_type = (row.get("submission_type") or "").strip().lower() or "standard"
+            if (row.get("is_exception") or "").strip().lower() in {"yes", "true", "1"}:
+                submission_type = "exception"
+            is_exception = submission_type == "exception"
             justification = (row.get("justification") or "").strip()
             exception_reason = (row.get("exception_reason") or "").strip()
+            proxy_mgmt_ip = (row.get("proxy_mgmt_ip") or "").strip()
+            proxy_cluster_ip = (row.get("proxy_cluster_ip") or "").strip()
+            proxy_backup_ip = (row.get("proxy_backup_ip") or "").strip()
+            proxy_details = (row.get("proxy_details") or "").strip()
 
             if not itam_id:
                 errors.append(f"Row {idx}: itam_id required.")
@@ -237,6 +262,14 @@ def register_routes(app):
                 errors.append(f"Row {idx}: exception_reason required for exceptions.")
                 skipped += 1
                 continue
+            if submission_type == "proxy_integrated" and not (proxy_mgmt_ip or proxy_cluster_ip or proxy_backup_ip):
+                errors.append(f"Row {idx}: provide at least one proxy IP.")
+                skipped += 1
+                continue
+            if submission_type == "proxy_integrated" and not proxy_details:
+                errors.append(f"Row {idx}: proxy_details required.")
+                skipped += 1
+                continue
             if submission_exists(user["department"] or "", hostname, ip_address):
                 skipped += 1
                 continue
@@ -252,6 +285,12 @@ def register_routes(app):
                 justification=justification,
                 exception_reason=exception_reason,
                 submitted_by=user["username"],
+                itam_id=itam_id,
+                submission_type=submission_type,
+                proxy_mgmt_ip=proxy_mgmt_ip,
+                proxy_cluster_ip=proxy_cluster_ip,
+                proxy_backup_ip=proxy_backup_ip,
+                proxy_details=proxy_details,
             )
             created += 1
 
@@ -317,7 +356,20 @@ def register_routes(app):
         if not user or user["role"] != "department":
             return redirect(url_for("login"))
         output = io.StringIO()
-        fieldnames = ["itam_id", "hostname", "ip_address", "environment", "region", "is_exception", "exception_reason", "justification"]
+        fieldnames = [
+            "itam_id",
+            "hostname",
+            "ip_address",
+            "environment",
+            "region",
+            "submission_type",
+            "exception_reason",
+            "justification",
+            "proxy_mgmt_ip",
+            "proxy_cluster_ip",
+            "proxy_backup_ip",
+            "proxy_details",
+        ]
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
         response = Response(output.getvalue(), mimetype="text/csv")
@@ -343,15 +395,27 @@ def register_routes(app):
             return build_csv_download(rows, "integrated_servers.csv", include_status=True)
         if export_type == "pending":
             rows = filter_rows(data["pending"], "", department)
-            rows = [{**row, "status": "Pending"} for row in rows]
+            submissions = list_submissions_by_department(department)
+            status_overrides = build_status_overrides(submissions)
+            filtered_rows = []
+            for row in rows:
+                if status_overrides.get(submission_key(row)):
+                    continue
+                filtered_rows.append({**row, "status": "Pending"})
+            rows = filtered_rows
             return build_csv_download(rows, "pending_servers.csv", include_status=True)
         if export_type == "all":
             rows = filter_rows(data["itam_rows"], "", department)
             integrated_keys = {(row.get("itam_id"), row.get("ip_address")) for row in data["integrated"]}
+            submissions = list_submissions_by_department(department)
+            status_overrides = build_status_overrides(submissions)
             with_status = []
             for row in rows:
                 key = (row.get("itam_id"), row.get("ip_address"))
                 status = "Integrated" if key in integrated_keys else "Pending"
+                override = status_overrides.get(submission_key(row)) or status_overrides.get(("", (row.get("hostname") or "").strip().lower(), (row.get("ip_address") or "").strip()))
+                if override:
+                    status = override
                 with_status.append({**row, "status": status})
             return build_csv_download(with_status, "all_servers.csv", include_status=True)
 

@@ -12,6 +12,7 @@ from .db import (
     log_action,
     review_exception,
     list_all_submissions,
+    list_proxy_submissions_filtered,
 )
 from .state import get_recon, save_recon, set_recon
 from .utils import (
@@ -22,6 +23,9 @@ from .utils import (
     build_department_summary,
     build_metrics,
     build_region_summary,
+    build_status_overrides,
+    adjust_counts,
+    submission_key,
     filter_rows,
     read_csv,
 )
@@ -191,16 +195,27 @@ def register_routes(app):
         pending_filtered = filter_rows(data["pending"], region, department)
         filtered_departments = data["departments"]
         dept_map = build_department_map(data["itam_rows"])
-        metrics = build_metrics(filtered_itam, integrated_filtered, pending_filtered)
+        submissions = [
+            item for item in list_all_submissions()
+            if ((not department) or (item["department"] or "") == department)
+            and ((not region) or (item["region"] or "") == region)
+        ]
+        status_overrides = build_status_overrides(submissions)
+        adjusted = adjust_counts(integrated_filtered, pending_filtered, status_overrides)
         counts_filtered = {
             "itam_total": len(filtered_itam),
-            "integrated": len(integrated_filtered),
-            "pending": len(pending_filtered),
+            "integrated": adjusted["integrated"],
+            "pending": adjusted["pending"],
         }
 
-        
-        summary = build_department_summary(filtered_itam, integrated_filtered, pending_filtered)
-        summary_regions = build_region_summary(filtered_itam, integrated_filtered, pending_filtered)
+        metrics = build_metrics(filtered_itam, integrated_filtered, pending_filtered)
+        total = counts_filtered["itam_total"] or 0
+        if total:
+            metrics["pending_rate"] = round((counts_filtered["pending"] / total) * 100)
+            metrics["integrated_rate"] = round((counts_filtered["integrated"] / total) * 100)
+
+        summary = build_department_summary(filtered_itam, integrated_filtered, pending_filtered, status_overrides)
+        summary_regions = build_region_summary(filtered_itam, integrated_filtered, pending_filtered, status_overrides)
         top_regions = sorted(summary_regions, key=lambda item: item.get("pending", 0), reverse=True)[:5]
         top_departments = sorted(summary, key=lambda item: item.get("pending", 0), reverse=True)[:5]
 
@@ -214,7 +229,7 @@ def register_routes(app):
             dept_map=dept_map,
             integrated=integrated_filtered,
             pending=pending_filtered,
-            all_rows=build_all_rows(integrated_filtered, pending_filtered),
+            all_rows=build_all_rows(integrated_filtered, pending_filtered, status_overrides),
             summary=summary,
             summary_regions=summary_regions,
             top_regions=top_regions,
@@ -238,6 +253,12 @@ def register_routes(app):
         region = (request.args.get("region") or "").strip()
         integrated = filter_rows(data["integrated"], region, department)
         pending = filter_rows(data["pending"], region, department)
+        submissions = [
+            item for item in list_all_submissions()
+            if (item["department"] or "") == department and ((not region) or (item["region"] or "") == region)
+        ]
+        status_overrides = build_status_overrides(submissions)
+        adjusted = adjust_counts(integrated, pending, status_overrides)
 
         return render_template(
             "admin_department.html",
@@ -246,12 +267,12 @@ def register_routes(app):
             region=region,
             integrated=integrated,
             pending=pending,
-            all_rows=build_all_rows(integrated, pending),
+            all_rows=build_all_rows(integrated, pending, status_overrides),
             counts={
-                "integrated": len(integrated),
-                "pending": len(pending),
+                "integrated": adjusted["integrated"],
+                "pending": adjusted["pending"],
             },
-            chart=build_chart({"integrated": len(integrated), "pending": len(pending)}),
+            chart=build_chart({"integrated": adjusted["integrated"], "pending": adjusted["pending"]}),
         )
 
     @app.route("/admin/exceptions")
@@ -276,6 +297,64 @@ def register_routes(app):
             departments=departments,
             department=department,
             status=status,
+        )
+
+    @app.route("/admin/proxy")
+    def admin_proxy():
+        user = current_user()
+        if not user or user["role"] != "admin":
+            return redirect(url_for("login"))
+        department = (request.args.get("department") or "").strip()
+        status = (request.args.get("status") or "").strip()
+        submissions = list_proxy_submissions_filtered(department, status)
+        submissions = [
+            {**dict(item), "age_days": age_days(item["submitted_at"])} for item in submissions
+        ]
+        departments = []
+        data = get_recon()
+        if data:
+            departments = sorted({row.get("department", "") for row in data["itam_rows"] if row.get("department", "")})
+        return render_template(
+            "admin_proxy.html",
+            user=user,
+            submissions=submissions,
+            departments=departments,
+            department=department,
+            status=status,
+        )
+
+    @app.route("/admin/proxy/<int:submission_id>", methods=["GET", "POST"])
+    def admin_proxy_review(submission_id: int):
+        user = current_user()
+        if not user or user["role"] != "admin":
+            return redirect(url_for("login"))
+        submission = get_submission(submission_id)
+        if not submission:
+            return redirect(url_for("admin_proxy"))
+        if (submission["submission_type"] or "") != "proxy_integrated":
+            return redirect(url_for("admin_proxy"))
+
+        submission_dict = dict(submission)
+        submission_dict["age_days"] = age_days(submission["submitted_at"])
+
+        if request.method == "POST":
+            action = (request.form.get("action") or "").strip().lower()
+            remarks = (request.form.get("remarks") or "").strip()
+            if action not in {"approved", "rejected"}:
+                return render_template(
+                    "admin_proxy_review.html",
+                    user=user,
+                    submission=submission_dict,
+                    error="Choose approve or reject.",
+                )
+            review_exception(submission_id, action, remarks, user["username"], False)
+            log_action(user["username"], "proxy_review", f"id={submission_id}, action={action}")
+            return redirect(url_for("admin_proxy"))
+
+        return render_template(
+            "admin_proxy_review.html",
+            user=user,
+            submission=submission_dict,
         )
 
     @app.route("/admin/exceptions/<int:submission_id>", methods=["GET", "POST"])
@@ -360,15 +439,21 @@ def register_routes(app):
         fieldnames = [
             "id",
             "department",
+            "itam_id",
             "hostname",
             "ip_address",
             "environment",
             "region",
             "status",
+            "submission_type",
             "is_exception",
             "exception_note_path",
             "justification",
             "exception_reason",
+            "proxy_mgmt_ip",
+            "proxy_cluster_ip",
+            "proxy_backup_ip",
+            "proxy_details",
             "submitted_by",
             "submitted_at",
             "admin_status",
@@ -376,12 +461,23 @@ def register_routes(app):
             "admin_reviewed_at",
             "admin_remarks",
             "review_verified",
+            "final_status",
         ]
         import csv
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
-            writer.writerow({key: row[key] for key in fieldnames})
+            data = {key: row[key] for key in fieldnames if key in row.keys()}
+            sub_type = (row["submission_type"] or "").lower() if "submission_type" in row.keys() else ""
+            is_exception = bool(row["is_exception"]) if "is_exception" in row.keys() else False
+            admin_status = (row["admin_status"] or "").lower() if "admin_status" in row.keys() else ""
+            final_status = "Submitted"
+            if (is_exception or sub_type == "exception") and admin_status:
+                final_status = f"Exception {admin_status.title()}"
+            elif sub_type == "proxy_integrated" and admin_status:
+                final_status = f"Proxy {admin_status.title()}"
+            data["final_status"] = final_status
+            writer.writerow(data)
         response = Response(output.getvalue(), mimetype="text/csv")
         response.headers["Content-Disposition"] = "attachment; filename=submissions_audit.csv"
         return response
@@ -414,15 +510,32 @@ def register_routes(app):
             return build_csv_download(rows, "integrated_servers.csv", include_status=True)
         if export_type == "pending":
             rows = filter_rows(data["pending"], region, department)
-            rows = [{**row, "status": "Pending"} for row in rows]
+            submissions = list_all_submissions()
+            submissions = [
+                item for item in submissions
+                if ((not department) or (item["department"] or "") == department)
+                and ((not region) or (item["region"] or "") == region)
+            ]
+            status_overrides = build_status_overrides(submissions)
+            filtered_rows = []
+            for row in rows:
+                if status_overrides.get(submission_key(row)):
+                    continue
+                filtered_rows.append({**row, "status": "Pending"})
+            rows = filtered_rows
             return build_csv_download(rows, "pending_servers.csv", include_status=True)
         if export_type == "all":
             rows = filter_rows(data["itam_rows"], region, department)
             integrated_keys = {(row.get("itam_id"), row.get("ip_address")) for row in data["integrated"]}
+            submissions = list_all_submissions()
+            status_overrides = build_status_overrides(submissions)
             with_status = []
             for row in rows:
                 key = (row.get("itam_id"), row.get("ip_address"))
                 status = "Integrated" if key in integrated_keys else "Pending"
+                override = status_overrides.get(submission_key(row)) or status_overrides.get(("", (row.get("hostname") or "").strip().lower(), (row.get("ip_address") or "").strip()))
+                if override:
+                    status = override
                 with_status.append({**row, "status": status})
             return build_csv_download(with_status, "all_servers.csv", include_status=True)
 
@@ -448,15 +561,35 @@ def register_routes(app):
             return build_csv_download(rows, "integrated_servers.csv", include_status=True)
         if export_type == "pending":
             rows = filter_rows(data["pending"], region, department)
-            rows = [{**row, "status": "Pending"} for row in rows]
+            submissions = list_all_submissions()
+            submissions = [
+                item for item in submissions
+                if (item["department"] or "") == department and ((not region) or (item["region"] or "") == region)
+            ]
+            status_overrides = build_status_overrides(submissions)
+            filtered_rows = []
+            for row in rows:
+                if status_overrides.get(submission_key(row)):
+                    continue
+                filtered_rows.append({**row, "status": "Pending"})
+            rows = filtered_rows
             return build_csv_download(rows, "pending_servers.csv", include_status=True)
         if export_type == "all":
             rows = filter_rows(data["itam_rows"], region, department)
             integrated_keys = {(row.get("itam_id"), row.get("ip_address")) for row in data["integrated"]}
+            submissions = list_all_submissions()
+            submissions = [
+                item for item in submissions
+                if (item["department"] or "") == department and ((not region) or (item["region"] or "") == region)
+            ]
+            status_overrides = build_status_overrides(submissions)
             with_status = []
             for row in rows:
                 key = (row.get("itam_id"), row.get("ip_address"))
                 status = "Integrated" if key in integrated_keys else "Pending"
+                override = status_overrides.get(submission_key(row)) or status_overrides.get(("", (row.get("hostname") or "").strip().lower(), (row.get("ip_address") or "").strip()))
+                if override:
+                    status = override
                 with_status.append({**row, "status": status})
             return build_csv_download(with_status, "all_servers.csv", include_status=True)
 

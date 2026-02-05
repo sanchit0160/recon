@@ -46,7 +46,13 @@ def init_db():
                 admin_reviewed_by TEXT,
                 admin_reviewed_at TEXT,
                 admin_remarks TEXT,
-                review_verified INTEGER
+                review_verified INTEGER,
+                itam_id TEXT,
+                submission_type TEXT,
+                proxy_mgmt_ip TEXT,
+                proxy_cluster_ip TEXT,
+                proxy_backup_ip TEXT,
+                proxy_details TEXT
             )
             """
         )
@@ -75,6 +81,18 @@ def ensure_submission_columns():
             conn.execute("ALTER TABLE submissions ADD COLUMN exception_reason TEXT")
         if "review_verified" not in existing:
             conn.execute("ALTER TABLE submissions ADD COLUMN review_verified INTEGER")
+        if "itam_id" not in existing:
+            conn.execute("ALTER TABLE submissions ADD COLUMN itam_id TEXT")
+        if "submission_type" not in existing:
+            conn.execute("ALTER TABLE submissions ADD COLUMN submission_type TEXT")
+        if "proxy_mgmt_ip" not in existing:
+            conn.execute("ALTER TABLE submissions ADD COLUMN proxy_mgmt_ip TEXT")
+        if "proxy_cluster_ip" not in existing:
+            conn.execute("ALTER TABLE submissions ADD COLUMN proxy_cluster_ip TEXT")
+        if "proxy_backup_ip" not in existing:
+            conn.execute("ALTER TABLE submissions ADD COLUMN proxy_backup_ip TEXT")
+        if "proxy_details" not in existing:
+            conn.execute("ALTER TABLE submissions ADD COLUMN proxy_details TEXT")
         conn.commit()
     finally:
         conn.close()
@@ -207,6 +225,12 @@ def create_submission(
     justification: str,
     exception_reason: str,
     submitted_by: str,
+    itam_id: str | None = None,
+    submission_type: str = "standard",
+    proxy_mgmt_ip: str | None = None,
+    proxy_cluster_ip: str | None = None,
+    proxy_backup_ip: str | None = None,
+    proxy_details: str | None = None,
 ):
     conn = db_connect()
     try:
@@ -215,8 +239,9 @@ def create_submission(
             INSERT INTO submissions (
                 department, hostname, ip_address, environment, region, exception_reason,
                 status, is_exception, exception_note_path, justification,
-                submitted_by, submitted_at, admin_status, review_verified
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                submitted_by, submitted_at, admin_status, review_verified,
+                itam_id, submission_type, proxy_mgmt_ip, proxy_cluster_ip, proxy_backup_ip, proxy_details
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 department,
@@ -233,6 +258,12 @@ def create_submission(
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "pending",
                 0,
+                itam_id,
+                submission_type,
+                proxy_mgmt_ip,
+                proxy_cluster_ip,
+                proxy_backup_ip,
+                proxy_details,
             ),
         )
         conn.commit()
@@ -255,7 +286,7 @@ def list_submissions_by_department(department: str):
 def list_exception_submissions_filtered(department: str, status: str):
     conn = db_connect()
     try:
-        query = "SELECT * FROM submissions WHERE is_exception = 1"
+        query = "SELECT * FROM submissions WHERE (is_exception = 1 OR submission_type = 'exception')"
         params = []
         if department:
             query += " AND department = ?"
@@ -336,5 +367,23 @@ def update_user_password(user_id: int, password: str):
             (generate_password_hash(password), user_id),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def list_proxy_submissions_filtered(department: str, status: str):
+    conn = db_connect()
+    try:
+        query = "SELECT * FROM submissions WHERE submission_type = 'proxy_integrated'"
+        params = []
+        if department:
+            query += " AND department = ?"
+            params.append(department)
+        if status:
+            query += " AND admin_status = ?"
+            params.append(status)
+        query += " ORDER BY submitted_at DESC"
+        cur = conn.execute(query, tuple(params))
+        return cur.fetchall()
     finally:
         conn.close()

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Review Proxy Integration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">&#2360;</div>
+        <nav class="nav">
+          <a class="nav-link" data-tooltip="Dashboard" href="{{ url_for('admin') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M3 10.5l9-7 9 7"></path>
+              <path d="M5 9.5V20h14V9.5"></path>
+            </svg>
+            <span class="label">Dashboard</span>
+          </a>
+          <a class="nav-link" data-tooltip="Exceptions" href="{{ url_for('admin_exceptions') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 7v6"></path>
+              <circle cx="12" cy="17" r="1"></circle>
+            </svg>
+            <span class="label">Exceptions</span>
+          </a>
+          <a class="nav-link active" data-tooltip="Proxy" href="{{ url_for('admin_proxy') }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
+              <path d="M12 2v6"></path>
+              <path d="M12 16v6"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <span class="label">Proxy Integrations</span>
+          </a>
+        </nav>
+      </aside>
+      <main class="page">
+      <header class="hero row">
+        <div>
+          <h1>Review Proxy Integration</h1>
+          <p>Verify related IP evidence before approving.</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+            <span class="icon-bars" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="theme-toggle" data-theme-toggle>Light mode</button>
+          <div class="user">
+            <span>Signed in as {{ user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+          </div>
+        </div>
+      </header>
+
+      {% if error %}
+        <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <section class="card">
+        <h2>Submission Details</h2>
+        <div class="summary">
+          <div><strong>Department</strong><span>{{ submission.department }}</span></div>
+          <div><strong>Hostname</strong><span>{{ submission.hostname }}</span></div>
+          <div><strong>IP Address</strong><span>{{ submission.ip_address }}</span></div>
+          <div><strong>Management IP</strong><span>{{ submission.proxy_mgmt_ip or '-' }}</span></div>
+          <div><strong>Cluster IP</strong><span>{{ submission.proxy_cluster_ip or '-' }}</span></div>
+          <div><strong>Backup IP</strong><span>{{ submission.proxy_backup_ip or '-' }}</span></div>
+          <div><strong>Details</strong><span>{{ submission.proxy_details or '-' }}</span></div>
+          <div><strong>Status</strong><span class="badge status-{{ submission.admin_status }}">{{ submission.admin_status }}</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Review Decision</h2>
+        <form method="post" class="form">
+          <label class="field">
+            <span>Remarks</span>
+            <textarea name="remarks" rows="4"></textarea>
+          </label>
+          <div class="inline-actions action-buttons">
+            <button type="submit" name="action" value="approved">Approve</button>
+            <button type="submit" name="action" value="rejected">Reject</button>
+          </div>
+        </form>
+      </section>
+      </main>
+    </div>
+    <script defer src="{{ url_for('static', filename='app.js') }}?v=20260205"></script>
+  </body>
+</html>

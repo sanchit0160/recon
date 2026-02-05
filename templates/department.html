@@ -132,7 +132,7 @@
                     {% for row in all_rows %}
                       <tr data-status="{{ row._status }}">
                         <td data-label="status">
-                          <span class="badge {% if row._status == 'Integrated' %}integrated{% else %}pending{% endif %}">
+                          <span class="badge {% if row._status == 'Integrated' %}integrated{% elif row._status == 'Integrated (Proxy)' %}integrated{% elif row._status == 'Exception' %}exception{% else %}pending{% endif %}">
                             {{ row._status }}
                           </span>
                         </td>
@@ -180,8 +180,9 @@
                       <th>ip_address</th>
                       <th>region</th>
                       <th>environment</th>
-                      <th>exception</th>
+                      <th>type</th>
                       <th>reason</th>
+                      <th>related_ips</th>
                       <th>status</th>
                       <th>timeline</th>
                       <th>remarks</th>
@@ -196,16 +197,43 @@
                         <td data-label="ip_address">{{ item.ip_address }}</td>
                         <td data-label="region">{{ item.region or '-' }}</td>
                         <td data-label="environment">{{ item.environment or '-' }}</td>
-                        <td data-label="exception">
-                          {% if item.is_exception %}
+                        <td data-label="type">
+                          {% if item.submission_type == 'proxy_integrated' %}
+                            <span class="badge integrated">Proxy Integrated</span>
+                          {% elif item.is_exception or item.submission_type == 'exception' %}
                             <span class="badge exception">Exception</span>
                           {% else %}
-                            <span class="badge integrated">Normal</span>
+                            <span class="badge">Standard</span>
                           {% endif %}
                         </td>
                         <td data-label="reason">{{ item.exception_reason or '-' }}</td>
+                        <td data-label="related_ips">
+                          {% if item.submission_type == 'proxy_integrated' %}
+                            {{ item.proxy_mgmt_ip or '-' }} · {{ item.proxy_cluster_ip or '-' }} · {{ item.proxy_backup_ip or '-' }}
+                          {% else %}
+                            -
+                          {% endif %}
+                        </td>
                         <td data-label="status">
-                          <span class="badge status-{{ item.admin_status }}">{{ item.admin_status }}</span>
+                          {% if item.submission_type == 'proxy_integrated' %}
+                            {% if item.admin_status == 'approved' %}
+                              <span class="badge integrated">Integrated (Proxy)</span>
+                            {% elif item.admin_status == 'rejected' %}
+                              <span class="badge status-rejected">Proxy Rejected</span>
+                            {% else %}
+                              <span class="badge pending">Proxy Pending</span>
+                            {% endif %}
+                          {% elif item.is_exception or item.submission_type == 'exception' %}
+                            {% if item.admin_status == 'approved' %}
+                              <span class="badge exception">Exception Approved</span>
+                            {% elif item.admin_status == 'rejected' %}
+                              <span class="badge status-rejected">Exception Rejected</span>
+                            {% else %}
+                              <span class="badge pending">Exception Pending</span>
+                            {% endif %}
+                          {% else %}
+                            <span class="badge">Submitted</span>
+                          {% endif %}
                         </td>
                         <td data-label="timeline">
                           {% if item.admin_status == 'pending' %}

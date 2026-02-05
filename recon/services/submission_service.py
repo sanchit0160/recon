@@ -24,6 +24,12 @@ def submit_department_server(*,
     justification: str,
     exception_reason: str,
     submitted_by: str,
+    itam_id: str | None = None,
+    submission_type: str = "standard",
+    proxy_mgmt_ip: str | None = None,
+    proxy_cluster_ip: str | None = None,
+    proxy_backup_ip: str | None = None,
+    proxy_details: str | None = None,
 ):
     note_path = None
     if exception_note_file and exception_note_file.filename:
@@ -40,6 +46,12 @@ def submit_department_server(*,
         justification=justification,
         exception_reason=exception_reason,
         submitted_by=submitted_by,
+        itam_id=itam_id,
+        submission_type=submission_type,
+        proxy_mgmt_ip=proxy_mgmt_ip,
+        proxy_cluster_ip=proxy_cluster_ip,
+        proxy_backup_ip=proxy_backup_ip,
+        proxy_details=proxy_details,
     )
     log_action(submitted_by, "submission_create", f"{hostname} ({ip_address}) exception={is_exception}")
     return note_path

@@ -76,7 +76,7 @@ def filter_rows(rows: List[Dict[str, str]], region: str, department: str) -> Lis
     return filtered
 
 
-def build_department_summary(itam_rows, integrated_rows, pending_rows):
+def build_department_summary(itam_rows, integrated_rows, pending_rows, status_overrides: dict | None = None):
     integrated_lookup = {(row.get("itam_id"), row.get("ip_address")) for row in integrated_rows}
     pending_lookup = {(row.get("itam_id"), row.get("ip_address")) for row in pending_rows}
     summary = {}
@@ -88,11 +88,14 @@ def build_department_summary(itam_rows, integrated_rows, pending_rows):
         if key in integrated_lookup:
             entry["integrated"] += 1
         elif key in pending_lookup:
-            entry["pending"] += 1
+            if status_overrides and status_overrides.get(submission_key(row)):
+                entry["integrated"] += 1
+            else:
+                entry["pending"] += 1
     return sorted(summary.values(), key=lambda item: item["department"].lower())
 
 
-def build_region_summary(itam_rows, integrated_rows, pending_rows):
+def build_region_summary(itam_rows, integrated_rows, pending_rows, status_overrides: dict | None = None):
     integrated_lookup = {(row.get("itam_id"), row.get("ip_address")) for row in integrated_rows}
     pending_lookup = {(row.get("itam_id"), row.get("ip_address")) for row in pending_rows}
     summary = {}
@@ -104,7 +107,10 @@ def build_region_summary(itam_rows, integrated_rows, pending_rows):
         if key in integrated_lookup:
             entry["integrated"] += 1
         elif key in pending_lookup:
-            entry["pending"] += 1
+            if status_overrides and status_overrides.get(submission_key(row)):
+                entry["integrated"] += 1
+            else:
+                entry["pending"] += 1
     return sorted(summary.values(), key=lambda item: item["region"].lower())
 
 
@@ -155,7 +161,7 @@ def itam_lookup(hostname: str, ip_address: str, itam_id: str, department: str | 
     return None
 
 
-def build_all_rows(integrated_rows, pending_rows):
+def build_all_rows(integrated_rows, pending_rows, status_overrides: dict | None = None):
     all_rows = []
     for row in integrated_rows:
         tagged = dict(row)
@@ -165,6 +171,8 @@ def build_all_rows(integrated_rows, pending_rows):
         tagged = dict(row)
         tagged["_status"] = "Pending"
         all_rows.append(tagged)
+    if status_overrides:
+        all_rows = apply_status_overrides(all_rows, status_overrides)
     return all_rows
 
 
@@ -221,3 +229,63 @@ def csv_response(rows: List[Dict[str, str]], filename: str, include_status: bool
             data["status"] = row.get("status", "")
         writer.writerow(data)
     return output.getvalue()
+
+
+def submission_key(item: dict) -> tuple:
+    itam_id = (item.get("itam_id") or "").strip().lower()
+    hostname = (item.get("hostname") or "").strip().lower()
+    ip_address = (item.get("ip_address") or "").strip()
+    return (itam_id, hostname, ip_address)
+
+
+def submission_key_fallback(item: dict) -> tuple:
+    hostname = (item.get("hostname") or "").strip().lower()
+    ip_address = (item.get("ip_address") or "").strip()
+    return ("", hostname, ip_address)
+
+
+def build_status_overrides(submissions: list) -> dict:
+    overrides = {}
+    for item in submissions:
+        data = dict(item) if not isinstance(item, dict) else item
+        sub_type = (data.get("submission_type") or "").lower()
+        is_exception = bool(data.get("is_exception")) or sub_type == "exception"
+        admin_status = (data.get("admin_status") or "").lower()
+        if admin_status != "approved":
+            continue
+        if is_exception:
+            overrides[submission_key(data)] = "Exception"
+            overrides[submission_key_fallback(data)] = "Exception"
+        elif sub_type == "proxy_integrated":
+            overrides[submission_key(data)] = "Integrated (Proxy)"
+            overrides[submission_key_fallback(data)] = "Integrated (Proxy)"
+    return overrides
+
+
+def apply_status_overrides(rows: list, overrides: dict) -> list:
+    updated = []
+    for row in rows:
+        tagged = dict(row)
+        key = submission_key(tagged)
+        alt_key = submission_key_fallback(tagged)
+        if key in overrides:
+            tagged["_status"] = overrides[key]
+        elif alt_key in overrides:
+            tagged["_status"] = overrides[alt_key]
+        updated.append(tagged)
+    return updated
+
+
+def adjust_counts(integrated_rows: list, pending_rows: list, overrides: dict) -> dict:
+    proxy_or_exception = 0
+    for row in pending_rows:
+        key = submission_key(row)
+        alt_key = submission_key_fallback(row)
+        if key in overrides or alt_key in overrides:
+            proxy_or_exception += 1
+    integrated_count = len(integrated_rows) + proxy_or_exception
+    pending_count = max(0, len(pending_rows) - proxy_or_exception)
+    return {
+        "integrated": integrated_count,
+        "pending": pending_count,
+    }

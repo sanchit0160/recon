@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Department · Admin</title>
+    <title>Proxy Integrations</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
   </head>
   <body>
@@ -35,7 +35,7 @@
             </svg>
             <span class="label">Exceptions</span>
           </a>
-          <a class="nav-link" data-tooltip="Proxy" href="{{ url_for('admin_proxy') }}">
+          <a class="nav-link active" data-tooltip="Proxy" href="{{ url_for('admin_proxy') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6">
               <path d="M12 2v6"></path>
               <path d="M12 16v6"></path>
@@ -64,8 +64,8 @@
       <main class="page">
       <header class="hero row">
         <div>
-          <h1>{{ department }} Department</h1>
-          <p>Integrated and pending servers for {{ department }}.</p>
+          <h1>Proxy Integrations</h1>
+          <p>Review proxy submissions (management/cluster/backup IP evidence).</p>
         </div>
         <div class="toolbar">
           <button type="button" class="sidebar-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
@@ -79,64 +79,37 @@
         </div>
       </header>
 
-      {% if region %}
-        <p class="subtle">
-          Filters:
-          {% if region %}<span class="badge">{{ region }}</span>{% endif %}
-        </p>
-      {% endif %}
-
       <section class="card">
-        <h2>Summary</h2>
-        <div class="summary">
-          <div>
-            <strong>Integrated</strong>
-            <span class="badge integrated">{{ counts.integrated }}</span>
-          </div>
-          <div>
-            <strong>Pending</strong>
-            <span class="badge pending">{{ counts.pending }}</span>
-          </div>
-        </div>
-        <div class="chart">
-          <div class="chart-labels">
-            <span>Integrated {{ counts.integrated }}</span>
-            <span>Pending {{ counts.pending }}</span>
-          </div>
-          <div class="chart-bar">
-            <span class="chart-integrated" style="width: {{ chart.integrated_pct }}%"></span>
-            <span class="chart-pending" style="width: {{ chart.pending_pct }}%"></span>
-          </div>
-        </div>
-      </section>
+        <form method="get" class="filters">
+          <label>
+            Department
+            <select name="department">
+              <option value="">All</option>
+              {% for dept in departments %}
+                <option value="{{ dept }}" {% if dept == department %}selected{% endif %}>{{ dept }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Status
+            <select name="status">
+              <option value="">All</option>
+              <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+              <option value="approved" {% if status == 'approved' %}selected{% endif %}>Approved</option>
+              <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Rejected</option>
+            </select>
+          </label>
+          <button type="submit">Apply</button>
+          {% if department or status %}
+            <a class="link" href="{{ url_for('admin_proxy') }}">Clear</a>
+          {% endif %}
+        </form>
 
-      <section class="card">
-        <div class="section-header">
-          <div>
-            <h2>Servers</h2>
-            <p class="subtle">All servers for {{ department }}.</p>
-          </div>
-          <div class="table-buttons">
-            <a class="ghost" href="{{ url_for('export_admin_department', department=department, type='all', region=region) }}">Export All</a>
-            <a class="ghost" href="{{ url_for('export_admin_department', department=department, type='integrated', region=region) }}">Export Integrated</a>
-            <a class="ghost" href="{{ url_for('export_admin_department', department=department, type='pending', region=region) }}">Export Pending</a>
-          </div>
-        </div>
-
-        {% if all_rows %}
-          <div class="table-block" data-default-filter="all">
-            <div class="sticky-bar">
-              <span>Table Controls</span>
-              <button type="button" class="ghost" data-open-filters>Filters</button>
-            </div>
-            <div class="table-tabs">
-              <button type="button" class="tab active" data-filter="all">All ({{ counts.integrated + counts.pending }})</button>
-              <button type="button" class="tab" data-filter="Integrated">Integrated ({{ counts.integrated }})</button>
-              <button type="button" class="tab" data-filter="Pending">Pending ({{ counts.pending }})</button>
-            </div>
-            <div class="table-actions filter-panel">
+        {% if submissions %}
+          <div class="table-block">
+            <div class="table-actions">
               <div class="table-controls">
-                <input type="search" class="table-search" placeholder="Search servers..." />
+                <input type="search" class="table-search" placeholder="Search proxy submissions..." />
                 <select class="table-page-size">
                   <option value="10">10 rows</option>
                   <option value="25">25 rows</option>
@@ -148,29 +121,29 @@
               <table>
                 <thead>
                   <tr>
-                    <th class="sortable">status</th>
-                    <th class="sortable">itam_id</th>
-                    <th class="sortable">hostname</th>
-                    <th class="sortable">region</th>
                     <th class="sortable">department</th>
-                    <th class="sortable">environment</th>
+                    <th class="sortable">hostname</th>
                     <th class="sortable">ip_address</th>
+                    <th class="sortable">mgmt_ip</th>
+                    <th class="sortable">cluster_ip</th>
+                    <th class="sortable">backup_ip</th>
+                    <th class="sortable">details</th>
+                    <th class="sortable">status</th>
+                    <th>review</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {% for row in all_rows %}
-                    <tr data-status="{{ row._status }}">
-                      <td data-label="status">
-                        <span class="badge {% if row._status == 'Integrated' %}integrated{% elif row._status == 'Integrated (Proxy)' %}integrated{% elif row._status == 'Exception' %}exception{% else %}pending{% endif %}">
-                          {{ row._status }}
-                        </span>
-                      </td>
-                      <td data-label="itam_id">{{ row.itam_id }}</td>
-                      <td data-label="hostname">{{ row.hostname }}</td>
-                      <td data-label="region">{{ row.region }}</td>
-                      <td data-label="department">{{ row.department }}</td>
-                      <td data-label="environment">{{ row.environment }}</td>
-                      <td data-label="ip_address">{{ row.ip_address }}</td>
+                  {% for item in submissions %}
+                    <tr>
+                      <td data-label="department">{{ item.department }}</td>
+                      <td data-label="hostname">{{ item.hostname }}</td>
+                      <td data-label="ip_address">{{ item.ip_address }}</td>
+                      <td data-label="mgmt_ip">{{ item.proxy_mgmt_ip or '-' }}</td>
+                      <td data-label="cluster_ip">{{ item.proxy_cluster_ip or '-' }}</td>
+                      <td data-label="backup_ip">{{ item.proxy_backup_ip or '-' }}</td>
+                      <td data-label="details">{{ item.proxy_details or '-' }}</td>
+                      <td data-label="status"><span class="badge status-{{ item.admin_status }}">{{ item.admin_status }}</span></td>
+                      <td data-label="review"><a class="ghost" href="{{ url_for('admin_proxy_review', submission_id=item.id) }}">Review</a></td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -183,7 +156,7 @@
             </div>
           </div>
         {% else %}
-          <p class="empty">No servers for this department.</p>
+          <p class="empty">No proxy submissions yet.</p>
         {% endif %}
       </section>
       </main>
@@ -191,5 +164,3 @@
     <script defer src="{{ url_for('static', filename='app.js') }}?v=20260205"></script>
   </body>
 </html>
-
-
