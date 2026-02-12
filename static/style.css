@@ -422,6 +422,86 @@ textarea {
   font-weight: 600;
 }
 
+.submission-form {
+  min-width: 0;
+  gap: 20px;
+}
+
+.department-submit-page .page {
+  width: min(1100px, 92%);
+}
+
+.department-submit-page .card {
+  padding: 24px;
+}
+
+.submission-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.submission-form .field {
+  min-width: 0;
+}
+
+.field-span-2 {
+  grid-column: auto;
+}
+
+.submission-form input[type="text"],
+.submission-form select,
+.submission-form textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+.submission-form .radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.submission-form .radio-option {
+  border-radius: 999px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 10px;
+}
+
+.submission-form .radio-option span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.submission-form .exception-panel,
+.submission-form .proxy-panel {
+  grid-template-columns: 1fr;
+  min-width: 0;
+  gap: 12px;
+}
+
+.panel-title {
+  margin: 0 0 2px;
+  font-size: 0.95rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.submission-form .exception-panel .checklist,
+.submission-form .proxy-panel .checklist,
+.submission-form .exception-panel .field:last-of-type,
+.submission-form .proxy-panel .field:last-of-type {
+  grid-column: 1 / -1;
+}
+
+.submission-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .checklist {
   border-top: 1px solid var(--border);
   padding-top: 10px;
@@ -1218,6 +1298,69 @@ th.sortable::after {
   th,
   td {
     font-size: 0.85rem;
+  }
+
+  .department-submit-page .table-wrap {
+    overflow-x: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .department-submit-page .table-wrap table,
+  .department-submit-page .table-wrap thead,
+  .department-submit-page .table-wrap tbody,
+  .department-submit-page .table-wrap tr,
+  .department-submit-page .table-wrap th,
+  .department-submit-page .table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .department-submit-page .table-wrap thead {
+    display: none;
+  }
+
+  .department-submit-page .table-wrap tr {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    margin-bottom: 10px;
+    background: var(--card);
+  }
+
+  .department-submit-page .table-wrap td {
+    border: none;
+    padding: 8px;
+  }
+
+  .department-submit-page .table-wrap td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .submission-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-span-2 {
+    grid-column: auto;
+  }
+
+  .submission-form .radio-group {
+    grid-template-columns: 1fr;
+  }
+
+  .submission-actions {
+    justify-content: stretch;
+  }
+
+  .submission-actions button {
+    width: 100%;
   }
 }
 

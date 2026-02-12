@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Submit Server</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260205" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260211b" />
   </head>
-  <body>
+  <body class="department-submit-page">
     <div class="layout">
       <aside class="sidebar">
         <div class="brand">&#2360;</div>
@@ -142,12 +142,13 @@
               </label>
               <label class="radio-option">
                 <input type="radio" name="submission_type" value="proxy_integrated" />
-                <span>Already Integrated (Proxy IPs)</span>
+                <span>Proxy Integrated</span>
               </label>
             </div>
           </label>
 
           <div class="exception-panel hidden">
+            <h3 class="panel-title">Exception Details</h3>
             <label class="field">
               <span>Exception Reason</span>
               <select name="exception_reason">
@@ -185,6 +186,7 @@
           </div>
 
           <div class="proxy-panel hidden">
+            <h3 class="panel-title">Proxy Integration Details</h3>
             <label class="field">
               <span>Management IP (already integrated)</span>
               <input type="text" name="proxy_mgmt_ip" />

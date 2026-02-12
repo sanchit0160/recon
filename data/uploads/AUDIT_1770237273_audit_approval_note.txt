@@ -1,8 +1,0 @@
-﻿Approval Note
-====================
-
-Department: Audit
-Approved By: Jane Doe (IT Director)
-Approval Date: 2026-02-04
-
-Signature: __Signature__

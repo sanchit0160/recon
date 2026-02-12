@@ -4,70 +4,75 @@ from werkzeug.security import generate_password_hash
 from .config import DATA_DIR, UPLOADS_DIR, DB_PATH, DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASS
 
 
+SCHEMA_STATEMENTS = (
+    """
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL,
+        department TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS submissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        department TEXT NOT NULL,
+        hostname TEXT NOT NULL,
+        ip_address TEXT NOT NULL,
+        environment TEXT,
+        region TEXT,
+        exception_reason TEXT,
+        status TEXT NOT NULL,
+        is_exception INTEGER NOT NULL DEFAULT 0,
+        exception_note_path TEXT,
+        justification TEXT,
+        submitted_by TEXT NOT NULL,
+        submitted_at TEXT NOT NULL,
+        admin_status TEXT NOT NULL DEFAULT 'pending',
+        admin_reviewed_by TEXT,
+        admin_reviewed_at TEXT,
+        admin_remarks TEXT,
+        review_verified INTEGER,
+        itam_id TEXT,
+        submission_type TEXT,
+        proxy_mgmt_ip TEXT,
+        proxy_cluster_ip TEXT,
+        proxy_backup_ip TEXT,
+        proxy_details TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        actor TEXT NOT NULL,
+        action TEXT NOT NULL,
+        details TEXT,
+        created_at TEXT NOT NULL
+    )
+    """,
+)
+
+
+def _ensure_core_schema(conn):
+    for statement in SCHEMA_STATEMENTS:
+        conn.execute(statement)
+    conn.commit()
+
+
 def db_connect():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    _ensure_core_schema(conn)
     return conn
 
 
 def init_db():
     conn = db_connect()
     try:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                role TEXT NOT NULL,
-                department TEXT
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS submissions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                department TEXT NOT NULL,
-                hostname TEXT NOT NULL,
-                ip_address TEXT NOT NULL,
-                environment TEXT,
-                region TEXT,
-                exception_reason TEXT,
-                status TEXT NOT NULL,
-                is_exception INTEGER NOT NULL DEFAULT 0,
-                exception_note_path TEXT,
-                justification TEXT,
-                submitted_by TEXT NOT NULL,
-                submitted_at TEXT NOT NULL,
-                admin_status TEXT NOT NULL DEFAULT 'pending',
-                admin_reviewed_by TEXT,
-                admin_reviewed_at TEXT,
-                admin_remarks TEXT,
-                review_verified INTEGER,
-                itam_id TEXT,
-                submission_type TEXT,
-                proxy_mgmt_ip TEXT,
-                proxy_cluster_ip TEXT,
-                proxy_backup_ip TEXT,
-                proxy_details TEXT
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS audit_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                actor TEXT NOT NULL,
-                action TEXT NOT NULL,
-                details TEXT,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.commit()
+        _ensure_core_schema(conn)
     finally:
         conn.close()
 
